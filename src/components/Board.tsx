@@ -75,14 +75,29 @@ export function Board() {
     let targetIndex = 0;
 
     if ((STATUSES as readonly string[]).includes(overId)) {
+      // Dropped on a column directly (possibly empty) — append to end.
       targetStatus = overId as Status;
       targetIndex = byStatus[targetStatus].filter((i) => i.id !== activeId).length;
     } else {
       const overItem = items.find((i) => i.id === overId);
       if (!overItem) return;
       targetStatus = overItem.status;
-      const col = byStatus[targetStatus].filter((i) => i.id !== activeId);
-      const idx = col.findIndex((i) => i.id === overId);
+      const fullCol = byStatus[targetStatus];
+      const activeIdxInFull = fullCol.findIndex((i) => i.id === activeId);
+      const overIdxInFull = fullCol.findIndex((i) => i.id === overId);
+      const col = fullCol.filter((i) => i.id !== activeId);
+      let idx = col.findIndex((i) => i.id === overId);
+      // When dragging downward inside the same column, the dropped card should
+      // land BELOW the target, not in its slot. Without this nudge the card
+      // ends up above where the user dropped it (visible bug: "drag down does
+      // nothing"). Cross-column drops keep the natural insert slot.
+      if (
+        activeIdxInFull >= 0 &&
+        overIdxInFull >= 0 &&
+        activeIdxInFull < overIdxInFull
+      ) {
+        idx += 1;
+      }
       targetIndex = idx >= 0 ? idx : col.length;
     }
 
