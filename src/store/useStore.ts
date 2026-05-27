@@ -964,7 +964,15 @@ async function fetchMembersAndInvites(
 
 /* ---------- Sorting selector (used by Board) ---------- */
 
+/** Rank each priority so P0 < P1 < P2 < P3 < no-priority when sorting. */
+const PRIORITY_RANK: Record<string, number> = { p0: 0, p1: 1, p2: 2, p3: 3 };
+
 export function sortForColumn(a: Item, b: Item): number {
+  // Primary: priority (P0 first, no-priority last).
+  const pa = a.priority ? PRIORITY_RANK[a.priority] : 4;
+  const pb = b.priority ? PRIORITY_RANK[b.priority] : 4;
+  if (pa !== pb) return pa - pb;
+  // Tie-breaker: existing position so DnD within the same priority bucket still works.
   return a.position - b.position;
 }
 
