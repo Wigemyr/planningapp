@@ -5,44 +5,64 @@
 @layer base {
   :root {
     color-scheme: dark;
+
+    /* Slate Paper tokens (mirror tailwind.config.ts) */
+    --bg: #111114;
+    --surface-1: #18181b;
+    --surface-2: #1f1f23;
+    --surface-3: #26262a;
+    --surface-4: #2f2f33;
+
+    --line-1: rgba(255, 255, 255, 0.06);
+    --line-2: rgba(255, 255, 255, 0.10);
+    --line-3: rgba(255, 255, 255, 0.14);
+
+    --ink-1: #f0f0f0;
+    --ink-2: #c4c4c5;
+    --ink-3: #8a8a8d;
+    --ink-4: #5a5a5d;
+
+    --accent: #5b8def;
+    --accent-2: #7ba2f2;
+    --accent-soft: rgba(91, 141, 239, 0.10);
+
+    --sem-neutral: #8a8a8d;
+    --sem-info:    #5b8def;
+    --sem-warn:    #c79348;
+    --sem-danger:  #c66e6b;
+    --sem-success: #6aa57d;
   }
   html, body, #root {
     height: 100%;
   }
   body {
-    font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    background: #0f1116;
-    color: #e8e9ed;
-    letter-spacing: -0.005em;
-    font-feature-settings: 'ss01', 'ss03';
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--ink-1);
+    letter-spacing: -0.011em;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
-  /* Allow focus rings everywhere — accessibility */
   *:focus-visible {
-    outline: 2px solid #7170ff;
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
     border-radius: 4px;
   }
-  /* Scrollbar styling for dark theme */
-  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
   *::-webkit-scrollbar-track { background: transparent; }
   *::-webkit-scrollbar-thumb {
-    background: #2a2f39;
-    border-radius: 5px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
+    background: var(--line-2);
+    border-radius: 4px;
   }
   *::-webkit-scrollbar-thumb:hover {
-    background: #383e4a;
-    background-clip: padding-box;
-    border: 2px solid transparent;
+    background: var(--ink-4);
   }
 }
 
 @layer components {
   .kbd {
-    @apply text-[10.5px] px-[5px] py-[1px] rounded border border-line-2 text-ink-muted bg-black/25 leading-[1.4] inline-block;
+    @apply text-[10.5px] font-mono px-[5px] py-[1px] rounded border border-line-2 text-ink-muted bg-black/25 leading-[1.4] inline-block;
   }
   .pill {
     @apply text-[11px] leading-[1.4] px-[7px] py-[1px] rounded font-medium inline-flex items-center;
@@ -56,35 +76,87 @@
   .meta-text {
     @apply text-[11px] text-ink-muted tabular-nums;
   }
+
+  /* Sidebar */
   .sidebar-link {
-    @apply flex items-center gap-[9px] px-[9px] py-[5px] rounded-md text-[12.5px] text-ink-2 transition-colors;
+    @apply flex items-center gap-[9px] px-[9px] py-[5px] rounded-md text-[12.5px] text-ink-2 transition-colors relative;
   }
   .sidebar-link:hover { @apply bg-white/[0.035] text-ink; }
-  .sidebar-link.active { @apply bg-accent/10 text-ink; }
+  .sidebar-link.active {
+    background: var(--surface-2);
+    color: var(--ink-1);
+  }
+  .sidebar-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 6px; bottom: 6px;
+    width: 2px; border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* shadcn-ish button — bordered, neutral surface, used in sidebar header */
+  .surface-button {
+    @apply flex items-center gap-2 w-full h-8 px-2.5 rounded-md text-[13px] font-medium transition-colors cursor-pointer;
+    background: var(--surface-2);
+    border: 1px solid var(--line-1);
+    color: var(--ink-1);
+    letter-spacing: -0.008em;
+  }
+  .surface-button:hover {
+    background: var(--surface-3);
+    border-color: var(--line-2);
+  }
+
+  /* Bug pill — desaturated brick */
   .type-bug-pill {
-    @apply inline-flex items-center gap-[3px] text-[11px] font-semibold px-[6px] py-px rounded border;
-    background: rgba(239,68,68,0.12);
-    color: #ef4444;
-    border-color: rgba(239,68,68,0.22);
+    @apply inline-flex items-center gap-[3px] text-[11px] font-semibold px-[6px] py-px rounded;
+    background: rgba(198,110,107,0.10);
+    color: var(--sem-danger);
     letter-spacing: 0.01em;
     padding-left: 5px;
   }
   .type-bug-pill svg { width: 11px; height: 11px; flex-shrink: 0; }
 
-  /* Uniform right-rail property control (selects + read-only chips). */
+  /* Property control (detail panel) */
   .prop-control {
     @apply w-full flex items-center text-[12.5px] rounded-md border;
     height: 30px;
     padding: 0 10px;
     line-height: 1;
+    border-color: var(--line-1);
   }
   .prop-control:hover { filter: brightness(1.08); }
   .prop-control:focus-within {
-    outline: 2px solid rgba(113,112,255,0.4);
+    outline: 2px solid var(--accent-soft);
     outline-offset: 1px;
   }
   .prop-static {
     @apply text-[12.5px] text-ink-2 px-2 py-1.5 inline-flex items-center;
+  }
+
+  /* Custom checkbox — shadcn-style */
+  .check {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    border: 1px solid var(--line-2);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    position: relative;
+    transition: background 0.12s, border-color 0.12s;
+  }
+  .check:hover { border-color: var(--line-3); }
+  .check:checked { background: var(--ink-1); border-color: var(--ink-1); }
+  .check:checked::after {
+    content: '';
+    position: absolute;
+    left: 3px; top: 0px;
+    width: 4px; height: 8px;
+    border: solid var(--bg);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
   }
 }
 

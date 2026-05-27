@@ -4,9 +4,14 @@ export const STATUSES = [
   'waiting',
   'blocked',
   'resolved',
-  'discarded',
 ] as const;
 export type Status = (typeof STATUSES)[number];
+
+/** Statuses that still exist in the DB but are no longer surfaced.
+ * Loaded items in any of these are folded into `resolved` at read time. */
+export const LEGACY_STATUS_REMAP: Record<string, Status> = {
+  discarded: 'resolved',
+};
 
 export const ITEM_TYPES = ['bug', 'feature', 'task', 'idea'] as const;
 export type ItemType = (typeof ITEM_TYPES)[number];
@@ -26,6 +31,7 @@ export interface Project {
   name: string;
   color: string;
   shortPrefix: string; // e.g. "ACM" for short IDs like ACM-119
+  position: number;
 }
 
 export interface Attachment {

@@ -32,4 +32,13 @@ export {
   ListFilter,
   LogOut,
   Loader2,
+  Flag,
+  Tag,
+  Users,
+  Folder,
+  Layers,
+  GripVertical,
+  PanelLeftClose,
+  PanelLeftOpen,
+  AlertOctagon,
 } from 'lucide-react';

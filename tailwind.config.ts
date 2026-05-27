@@ -5,42 +5,54 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       colors: {
-        // Surfaces — bumped a touch lighter than the original near-black so the UI
-        // feels less heavy without losing the dark dashboard aesthetic.
-        bg: '#0f1116',
+        // Slate Paper — warm neutral dark palette
+        bg: '#111114',
         panel: {
-          DEFAULT: '#171a21',
-          2: '#1e222a',
-          3: '#252a33',
+          DEFAULT: '#1f1f23', // surface-2 — cards / dialogs / popovers
+          2: '#26262a',       // surface-3 — hover
+          3: '#2f2f33',       // surface-4 — highest elevation
         },
-        // Lines (avoid clashing with border-utility)
+        surface: {
+          1: '#18181b',
+          2: '#1f1f23',
+          3: '#26262a',
+          4: '#2f2f33',
+        },
         line: {
-          DEFAULT: '#262b34',
-          2: '#343a45',
+          DEFAULT: 'rgba(255, 255, 255, 0.06)',
+          2: 'rgba(255, 255, 255, 0.10)',
+          3: 'rgba(255, 255, 255, 0.14)',
         },
-        // Ink (text)
         ink: {
-          DEFAULT: '#e8e9ed',
-          2: '#c9cbd2',
-          muted: '#8a8f99',
-          subtle: '#5d626c',
+          DEFAULT: '#f0f0f0',
+          2: '#c4c4c5',
+          muted: '#8a8a8d',
+          subtle: '#5a5a5d',
         },
-        // Brand
         accent: {
-          DEFAULT: '#7170ff',
-          2: '#5b5af0',
+          DEFAULT: '#5b8def',
+          2: '#7ba2f2',
         },
-        // Status hues
+        // Semantic palette (desaturated, editorial)
+        sem: {
+          neutral: '#8a8a8d',
+          info: '#5b8def',
+          warn: '#c79348',
+          danger: '#c66e6b',
+          success: '#6aa57d',
+        },
+        // Status hues (status-* utility classes still used in places)
         status: {
-          backlog: '#8b8fa3',
-          active: '#7170ff',
-          waiting: '#f59e0b',
-          blocked: '#ef4444',
-          resolved: '#10b981',
-          discard: '#6b6f78',
+          backlog: '#8a8a8d',
+          active: '#5b8def',
+          waiting: '#c79348',
+          blocked: '#c66e6b',
+          resolved: '#6aa57d',
+          discard: '#5a5a5d',
         },
       },
       borderRadius: {
