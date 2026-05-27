@@ -38,7 +38,7 @@ export function BoardColumn({ status, items }: Props) {
     <section
       ref={setNodeRef}
       // Layout (horizontal vs vertical stack) and separator side both live in
-      // .board-col + mode-class — see src/index.css. :not(:last-child) handles
+      // .board-col + media query — see src/index.css. :not(:last-child) handles
       // the separator-on-last suppression, no marker class needed.
       className="board-col"
     >
@@ -92,7 +92,7 @@ export function BoardColumn({ status, items }: Props) {
         <div className="board-col-cards">
           {items.length === 0 ? (
             <div
-              className="text-[11px] text-center italic flex items-center justify-center min-h-[80px] lg:h-full lg:min-h-[160px]"
+              className="board-empty-state text-[11px] text-center italic flex items-center justify-center min-h-[80px] lg:h-full lg:min-h-[160px]"
               style={{ color: isOver ? 'var(--accent-2)' : 'var(--ink-4)' }}
             >
               {isOver ? 'Drop here' : 'Empty — click + or drop here'}

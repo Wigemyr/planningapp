@@ -43,7 +43,9 @@
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* Default cursor: dim grey arrow with white outline. Hot-spot at (3,2). */
+    /* Custom cursor: refined arrow in lighter grey with subtle white outline.
+     * Same SVG is reused on clickables below so the cursor doesn't morph into the
+     * OS default hand (which is huge + colored on Windows). Hot-spot at (3,2). */
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23c4c5cb' stroke='%23f5f5f7' stroke-width='1.2' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, default;
   }
   /* Clickables get a BRIGHTER arrow (white-ish fill + crisp outline) so the cursor
@@ -180,6 +182,25 @@
   }
   .board-mode-vertical .board-col:not(:last-child) {
     box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.06);
+  }
+  /* Cards in vertical mode lay out as a wrapping grid of fixed-width tiles so
+   * widescreens don't leave each row mostly empty. Horizontal mode keeps the
+   * default column stack from .board-col-cards above. */
+  .board-mode-vertical .board-col-cards {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .board-mode-vertical .board-col-cards > * {
+    flex: 0 0 280px;
+    min-width: 0;
+    max-width: 280px;
+  }
+  /* Empty-state placeholder should still span the full row so the "drop here"
+   * hint is obvious when the section has no cards yet. */
+  .board-mode-vertical .board-col-cards > .board-empty-state {
+    flex: 1 1 100%;
+    max-width: none;
   }
 
   /* Sidebar */
