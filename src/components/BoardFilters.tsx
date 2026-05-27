@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { useFilters } from '@/store/useFilters';
 import { PRIORITIES, ITEM_TYPES, type Priority, type ItemType } from '@/lib/types';
-import { PRIORITY_LABEL } from '@/lib/constants';
+import { PRIORITY_LABEL_FULL } from '@/lib/constants';
 import { Avatar } from './Avatar';
 import {
   Search,
@@ -36,6 +36,7 @@ export function BoardFilters() {
   const items = useStore((s) => s.items);
   const currentUserId = useStore((s) => s.currentUserId);
 
+  // Distinct labels seen on any item — for the Labels filter dropdown.
   const allLabels = useMemo(() => {
     const set = new Set<string>();
     items.forEach((it) => it.labels.forEach((l) => set.add(l)));
@@ -48,6 +49,7 @@ export function BoardFilters() {
     <div
       className="border-b border-line flex items-center gap-2 px-4 py-2.5 flex-wrap"
     >
+      {/* Search */}
       <div className="relative">
         <Search
           className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-subtle"
@@ -64,6 +66,7 @@ export function BoardFilters() {
 
       <div className="w-px h-5 bg-line" />
 
+      {/* Just-me quick toggle */}
       <FilterChip
         active={meActive}
         onClear={meActive ? () => toggleAssignee('me') : undefined}
@@ -76,6 +79,7 @@ export function BoardFilters() {
         <span>Assigned to me</span>
       </FilterChip>
 
+      {/* Priority */}
       <FilterMenu
         icon={<Flag className="w-3.5 h-3.5" strokeWidth={1.75} />}
         label="Priority"
@@ -91,7 +95,7 @@ export function BoardFilters() {
                   onClick={() => togglePriority(p as Priority)}
                 >
                   <span className="text-[12.5px]">
-                    {p ? PRIORITY_LABEL[p] : 'No priority'}
+                    {p ? PRIORITY_LABEL_FULL[p] : 'No priority'}
                   </span>
                 </MenuCheckItem>
               );
@@ -100,6 +104,7 @@ export function BoardFilters() {
         )}
       />
 
+      {/* Type */}
       <FilterMenu
         icon={<LayoutGrid className="w-3.5 h-3.5" strokeWidth={1.75} />}
         label="Type"
@@ -122,6 +127,7 @@ export function BoardFilters() {
         )}
       />
 
+      {/* Assignee */}
       <FilterMenu
         icon={<Users className="w-3.5 h-3.5" strokeWidth={1.75} />}
         label="Assignee"
@@ -149,6 +155,7 @@ export function BoardFilters() {
         )}
       />
 
+      {/* Labels */}
       {allLabels.length > 0 && (
         <FilterMenu
           icon={<Tag className="w-3.5 h-3.5" strokeWidth={1.75} />}
@@ -187,6 +194,8 @@ export function BoardFilters() {
     </div>
   );
 }
+
+/* ---------- Building blocks ---------- */
 
 interface FilterChipProps {
   active?: boolean;

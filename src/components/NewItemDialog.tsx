@@ -3,7 +3,7 @@ import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { useNavigate } from 'react-router-dom';
 import { ITEM_TYPES, STATUSES, type ItemType, type Priority, type Status } from '@/lib/types';
-import { STATUS_CONFIG, TYPE_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL } from '@/lib/constants';
+import { STATUS_CONFIG, TYPE_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL_FULL } from '@/lib/constants';
 import { Select } from './Select';
 import { X, Paperclip, Check } from './icons';
 import { formatBytes } from '@/lib/format';
@@ -78,7 +78,15 @@ export function NewItemDialog() {
   const [submitting, setSubmitting] = useState(false);
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
+  /** Has the user interacted with the Priority picker since opening?
+   * Default state is null = "No priority". We can't tell the difference
+   * between "user explicitly chose No priority" and "user never touched it"
+   * just by looking at the value, so we track the interaction. The warning
+   * only fires when the user submits without ever opening the dropdown. */
+  const [priorityTouched, setPriorityTouched] = useState(false);
+  const [noPriorityPromptOpen, setNoPriorityPromptOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const priorityChipRef = useRef<HTMLDivElement>(null);
 
   /** CRITICAL: only reset state on the false→true open transition. Earlier this
    * effect listed `projects` and `currentProjectId` as deps, which meant any
@@ -95,6 +103,9 @@ export function NewItemDialog() {
         setType(draft.type);
         setStatus((defaults?.status as Status) ?? draft.status);
         setPriority(draft.priority ?? null);
+        // A persisted draft is an explicit prior choice — count it as touched
+        // so the warning doesn't fire when the user reopens a draft.
+        setPriorityTouched(true);
         setRestoredFromDraft(true);
       } else {
         setTitle('');
@@ -103,11 +114,13 @@ export function NewItemDialog() {
         setType('task');
         setStatus((defaults?.status as Status) ?? 'backlog');
         setPriority(null);
+        setPriorityTouched(false);
         setRestoredFromDraft(false);
       }
       setPastedBlobs([]);
       setSubmitting(false);
       setClosePromptOpen(false);
+      setNoPriorityPromptOpen(false);
       setTimeout(() => titleRef.current?.focus(), 10);
     }
     prevOpenRef.current = open;
@@ -129,6 +142,11 @@ export function NewItemDialog() {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
+        if (noPriorityPromptOpen) {
+          e.preventDefault();
+          setNoPriorityPromptOpen(false);
+          return;
+        }
         if (closePromptOpen) {
           e.preventDefault();
           setClosePromptOpen(false);
@@ -141,7 +159,7 @@ export function NewItemDialog() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closePromptOpen, dirty]);
+  }, [open, closePromptOpen, noPriorityPromptOpen, dirty]);
 
   // Image paste: stage blobs locally; upload after item creation succeeds.
   useEffect(() => {
@@ -219,12 +237,20 @@ export function NewItemDialog() {
     setType('task');
     setStatus((defaults?.status as Status) ?? 'backlog');
     setPriority(null);
+    setPriorityTouched(false);
     setRestoredFromDraft(false);
     setTimeout(() => titleRef.current?.focus(), 10);
   }
 
-  async function submit(navigateToItem = false) {
+  async function submit(navigateToItem = false, { force = false } = {}) {
     if (!title.trim() || !projectId || submitting) return;
+    // Gate: if the user never touched the Priority picker and priority is still
+    // null, ask before creating. They can opt out via the prompt's "Create
+    // without priority" or explicitly pick "No priority" (which sets touched).
+    if (!force && !priorityTouched && priority === null) {
+      setNoPriorityPromptOpen(true);
+      return;
+    }
     setSubmitting(true);
     try {
       const item = await createItem({
@@ -274,10 +300,10 @@ export function NewItemDialog() {
    * string values, so we round-trip null <-> '' when reading/writing. */
   const priorityOptions = [
     { value: '', label: 'No priority', dot: 'var(--ink-4)' },
-    { value: 'p0', label: PRIORITY_LABEL.p0 + ' — critical', dot: PRIORITY_COLOR.p0.color, color: PRIORITY_COLOR.p0.color },
-    { value: 'p1', label: PRIORITY_LABEL.p1 + ' — high',     dot: PRIORITY_COLOR.p1.color, color: PRIORITY_COLOR.p1.color },
-    { value: 'p2', label: PRIORITY_LABEL.p2 + ' — medium',   dot: PRIORITY_COLOR.p2.color, color: PRIORITY_COLOR.p2.color },
-    { value: 'p3', label: PRIORITY_LABEL.p3 + ' — low',      dot: PRIORITY_COLOR.p3.color, color: PRIORITY_COLOR.p3.color },
+    { value: 'p0', label: PRIORITY_LABEL_FULL.p0, dot: PRIORITY_COLOR.p0.color, color: PRIORITY_COLOR.p0.color },
+    { value: 'p1', label: PRIORITY_LABEL_FULL.p1, dot: PRIORITY_COLOR.p1.color, color: PRIORITY_COLOR.p1.color },
+    { value: 'p2', label: PRIORITY_LABEL_FULL.p2, dot: PRIORITY_COLOR.p2.color, color: PRIORITY_COLOR.p2.color },
+    { value: 'p3', label: PRIORITY_LABEL_FULL.p3, dot: PRIORITY_COLOR.p3.color, color: PRIORITY_COLOR.p3.color },
   ];
 
   return (
@@ -430,13 +456,18 @@ export function NewItemDialog() {
               options={statusOptions}
               ariaLabel="Status"
             />
-            <Select
-              value={priority ?? ''}
-              onChange={(v) => setPriority((v || null) as Priority)}
-              options={priorityOptions}
-              ariaLabel="Priority"
-              placeholder="Priority"
-            />
+            <div ref={priorityChipRef}>
+              <Select
+                value={priority ?? ''}
+                onChange={(v) => {
+                  setPriority((v || null) as Priority);
+                  setPriorityTouched(true);
+                }}
+                options={priorityOptions}
+                ariaLabel="Priority"
+                placeholder="Priority"
+              />
+            </div>
             <Select
               value={projectId}
               onChange={setProjectId}
@@ -577,6 +608,100 @@ export function NewItemDialog() {
                 >
                   <Check className="w-3.5 h-3.5" strokeWidth={2.25} />
                   {submitting ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* "Recommend a priority" prompt — only shown when the user submits
+         * without ever opening the Priority picker. Picking "No priority"
+         * explicitly sets priorityTouched=true and bypasses this entirely. */}
+        {noPriorityPromptOpen && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center px-4"
+            style={{
+              background: 'rgba(8,8,12,0.72)',
+              backdropFilter: 'blur(6px)',
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setNoPriorityPromptOpen(false);
+            }}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="no-priority-title"
+          >
+            <div
+              className="w-full max-w-[420px] shadow-2xl shadow-black/50"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--line-2)',
+                borderRadius: 8,
+              }}
+            >
+              <div className="p-5">
+                <h3 id="no-priority-title" className="text-[14px] font-semibold mb-1.5">
+                  Set a priority?
+                </h3>
+                <p className="text-[12.5px] text-ink-2 leading-relaxed">
+                  We recommend setting a priority so the team can triage the
+                  board at a glance. You can still create the item without one.
+                </p>
+              </div>
+              <div
+                className="flex items-center justify-end gap-2 px-5 py-3 flex-wrap"
+                style={{
+                  borderTop: '1px solid var(--line-1)',
+                  background: 'rgba(0,0,0,0.18)',
+                  borderBottomLeftRadius: 8,
+                  borderBottomRightRadius: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Treat "create without priority" as an explicit choice —
+                    // record it and proceed.
+                    setPriorityTouched(true);
+                    setNoPriorityPromptOpen(false);
+                    void submit(false, { force: true });
+                  }}
+                  className="text-[12px] px-3 py-1.5 rounded-md text-ink-muted hover:text-ink-2 hover:bg-white/[0.05] transition-colors"
+                >
+                  Create without priority
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => {
+                    setNoPriorityPromptOpen(false);
+                    // Try to scroll/focus the Priority chip so the user can
+                    // open the dropdown. The chip's first focusable child is
+                    // the Select's button.
+                    setTimeout(() => {
+                      const trigger = priorityChipRef.current?.querySelector(
+                        'button',
+                      ) as HTMLButtonElement | null;
+                      trigger?.focus();
+                      trigger?.click();
+                    }, 30);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors"
+                  style={{
+                    background: 'var(--surface-4)',
+                    border: '1px solid var(--line-2)',
+                    color: 'var(--ink-1)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.borderColor = 'var(--line-3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--surface-4)';
+                    e.currentTarget.style.borderColor = 'var(--line-2)';
+                  }}
+                >
+                  Set priority
                 </button>
               </div>
             </div>
