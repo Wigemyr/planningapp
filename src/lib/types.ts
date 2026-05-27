@@ -30,6 +30,8 @@ export interface Project {
   workspaceId: string;
   name: string;
   color: string;
+  /** Slug from the PROJECT_ICONS registry in `src/lib/projectAppearance.ts`. */
+  icon: string;
   shortPrefix: string; // e.g. "ACM" for short IDs like ACM-119
   position: number;
 }
