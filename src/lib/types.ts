@@ -93,4 +93,18 @@ export interface Comment {
   updatedAt: string;
 }
 
+export type NotificationKind = 'assigned' | 'mentioned' | 'commented_on_assigned';
+
+export interface Notification {
+  id: string;
+  recipientId: string;
+  workspaceId: string;
+  itemId: string;
+  commentId: string | null;
+  actorId: string | null;
+  kind: NotificationKind;
+  readAt: string | null;
+  createdAt: string;
+}
+
 // (DbShape was for the localStorage v1 store; v2 fetches live from Supabase.)
