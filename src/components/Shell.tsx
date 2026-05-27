@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { NewItemDialog } from './NewItemDialog';
 import { NewProjectDialog } from './NewProjectDialog';
+import { ConfirmDialog } from './ConfirmDialog';
+import { ContextMenu } from './ContextMenu';
 import { useUi } from '@/store/useUi';
 import { useStore } from '@/store/useStore';
 
@@ -40,6 +42,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         onClose={closeNewProject}
         onCreated={(id) => setCurrentProject(id)}
       />
+      <ConfirmDialog />
+      <ContextMenu />
     </div>
   );
 }
