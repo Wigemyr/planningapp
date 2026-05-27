@@ -14,6 +14,7 @@ import {
 import { Avatar } from '@/components/Avatar';
 import { ImageLightbox } from '@/components/ImageLightbox';
 import { RichTextEditor } from '@/components/RichTextEditor';
+import { CommentSection } from '@/components/CommentSection';
 import { useUi } from '@/store/useUi';
 import { formatAbsolute, formatRelative, formatBytes } from '@/lib/format';
 import {
@@ -566,6 +567,9 @@ export default function ItemRoute() {
                 if you discard other edits).
               </p>
             </section>
+
+            {/* discussion */}
+            <CommentSection itemId={item.id} />
 
             {/* danger zone */}
             <div className="mt-7 pt-6 border-t border-line">

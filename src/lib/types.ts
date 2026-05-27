@@ -80,4 +80,17 @@ export interface User {
   color: string;
 }
 
+export interface Comment {
+  id: string;
+  workspaceId: string;
+  itemId: string;
+  authorId: string | null;
+  /** HTML produced by RichTextEditor. */
+  body: string;
+  /** Profile ids the author @-mentioned. Drives notifications later. */
+  mentions: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // (DbShape was for the localStorage v1 store; v2 fetches live from Supabase.)
