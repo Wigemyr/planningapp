@@ -69,11 +69,12 @@ export function ItemCard({ item, dragging = false }: Props) {
   return (
     <article
       onClick={(e) => {
+        // ignore if a drag just happened (handled by listeners)
         e.stopPropagation();
         navigate(`/items/${item.id}`);
       }}
       onContextMenu={handleContextMenu}
-      className={`group cursor-pointer rounded-md border border-line bg-panel p-3 pb-2.5 transition-colors hover:bg-panel-2 hover:border-line-2 focus-within:bg-panel-2 ${
+      className={`group cursor-pointer rounded-md border border-line bg-panel p-3 pb-2.5 transition-colors hover:bg-panel-2 hover:border-line-2 focus-within:bg-panel-2 flex flex-col h-[148px] overflow-hidden ${
         dragging ? 'ring-1 ring-accent/40' : ''
       }`}
       style={{
@@ -121,7 +122,7 @@ export function ItemCard({ item, dragging = false }: Props) {
       </div>
 
       <h3
-        className={`text-[13.5px] font-medium leading-snug mb-1 ${
+        className={`text-[13.5px] font-medium leading-snug mb-1 line-clamp-2 ${
           statusCfg.strike ? 'line-through decoration-[#3a3e46] text-ink-muted' : ''
         }`}
       >
@@ -134,8 +135,9 @@ export function ItemCard({ item, dragging = false }: Props) {
         </p>
       )}
 
-      <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-line">
+      <div className="flex items-center gap-2 mt-auto pt-2 border-t border-line">
         <Avatar user={assignee} size={20} faded={isResolved} />
+        {/* Project chip — only shown in "All projects" view */}
         {currentProjectId === null && project && (
           <span className="text-[11px] text-ink-subtle truncate max-w-[120px]" title={project.name}>
             <span className="dot mr-1 align-middle" style={{ background: project.color, width: 6, height: 6 }} />
@@ -168,6 +170,7 @@ function waitingDays(iso: string) {
 }
 
 function labelStyle(label: string): React.CSSProperties {
+  // small palette by label name — keeps colors stable across renders
   const palette: Record<string, { bg: string; color: string }> = {
     billing:   { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' },
     api:       { bg: 'rgba(16,185,129,0.12)', color: '#10b981' },
