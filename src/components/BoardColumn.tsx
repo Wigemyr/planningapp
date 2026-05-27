@@ -41,6 +41,14 @@ export function BoardColumn({ status, items }: Props) {
       // .board-col + media query — see src/index.css. :not(:last-child) handles
       // the separator-on-last suppression, no marker class needed.
       className="board-col"
+      onDoubleClick={(e) => {
+        // Open the new-item dialog with this status preselected, but ignore
+        // double-clicks that land on a card, a button, or any other interactive
+        // child — those have their own behaviors.
+        const target = e.target as HTMLElement;
+        if (target.closest('article, button, a, input, textarea, select')) return;
+        openNewItem({ status });
+      }}
     >
       <header
         className="flex items-center gap-2.5"

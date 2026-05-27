@@ -11,6 +11,7 @@ export {
   Paperclip,
   Settings,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ArrowLeft,
   Share2,
