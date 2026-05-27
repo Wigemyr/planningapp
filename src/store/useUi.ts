@@ -30,17 +30,14 @@ function initialSidebar(): boolean {
   }
 }
 
-/** First time: pick based on viewport (portrait → vertical, else horizontal).
- * After the user toggles, their choice persists in localStorage. */
+/** Always defaults to horizontal. User flips with the toggle button — choice
+ * persists in localStorage. No auto-detection based on viewport. */
 function initialBoardLayout(): BoardLayout {
   try {
     const saved = localStorage.getItem(BOARD_LAYOUT_KEY);
     if (saved === 'horizontal' || saved === 'vertical') return saved;
   } catch {
     // ignore
-  }
-  if (typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches) {
-    return 'vertical';
   }
   return 'horizontal';
 }
