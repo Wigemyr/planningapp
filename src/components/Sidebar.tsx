@@ -435,7 +435,11 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onDel
         <button
           type="button"
           onClick={onSelect}
-          className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+          className={
+            collapsed
+              ? 'flex items-center justify-center w-full'
+              : 'flex items-center gap-2.5 flex-1 min-w-0 text-left'
+          }
           title={project.name}
         >
           <Folder
