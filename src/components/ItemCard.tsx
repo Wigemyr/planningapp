@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
 import { Bug, Paperclip, Clock, Trash2 } from './icons';
+import { stripTags } from './RichTextEditor';
 
 /** Warm-neutral palette per item type. All four types are distinct so you can
  * scan a board and tell types apart without reading the label. */
@@ -94,7 +95,7 @@ export function ItemCard({ item, dragging = false }: Props) {
               style={{
                 background: t.bg,
                 color: t.color,
-                border: `1px solid ${t.border}`,
+                border: t.border ? `1px solid ${t.border}` : undefined,
                 opacity: item.status === 'resolved' ? 0.7 : 1,
               }}
             >
@@ -132,7 +133,7 @@ export function ItemCard({ item, dragging = false }: Props) {
 
       {item.description && !isResolved && (
         <p className="text-[12px] leading-snug text-ink-muted line-clamp-2">
-          {item.description.replace(/[`*#_~]/g, '').replace(/\n+/g, ' ')}
+          {stripTags(item.description)}
         </p>
       )}
 
