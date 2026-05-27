@@ -14,6 +14,7 @@ interface Props {
   onCreated?: (projectId: string) => void;
 }
 
+/** Auto-derive prefix from name (3 letters, uppercase). User can override. */
 function suggestPrefix(n: string) {
   return n
     .toUpperCase()
@@ -225,13 +226,21 @@ export function NewProjectDialog({ open, onClose, onCreated }: Props) {
               type="button"
               onClick={() => void submit()}
               disabled={!name.trim() || submitting}
-              className="surface-button text-[12.5px] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-[12.5px] font-medium px-3.5 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                width: 'auto',
-                padding: '0 14px',
-                background: 'var(--accent)',
-                borderColor: 'transparent',
-                color: 'white',
+                background: 'var(--surface-4)',
+                border: '1px solid var(--line-2)',
+                color: 'var(--ink-1)',
+              }}
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.disabled) {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.borderColor = 'var(--line-3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--surface-4)';
+                e.currentTarget.style.borderColor = 'var(--line-2)';
               }}
             >
               {submitting ? 'Creating…' : 'Create project'}
