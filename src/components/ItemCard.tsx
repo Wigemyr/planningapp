@@ -22,22 +22,21 @@ export function ItemCard({ item, dragging = false }: Props) {
 
   const cardBorder = statusCfg.cardBorder ?? undefined;
   const isBug = item.type === 'bug';
-  const isResolvedOrDiscarded = item.status === 'resolved' || item.status === 'discarded';
-  const isDiscarded = item.status === 'discarded';
+  const isResolved = item.status === 'resolved';
 
   return (
     <article
       onClick={(e) => {
-        // ignore if a drag just happened (handled by listeners)
         e.stopPropagation();
         navigate(`/items/${item.id}`);
       }}
-      className={`group cursor-pointer rounded-lg border border-line bg-panel p-3 pb-2.5 transition-colors hover:bg-panel-2 hover:border-line-2 focus-within:bg-panel-2 ${
-        isDiscarded ? 'opacity-60' : ''
-      } ${dragging ? 'ring-1 ring-accent/40' : ''}`}
+      className={`group cursor-pointer rounded-md border border-line bg-panel p-3 pb-2.5 transition-colors hover:bg-panel-2 hover:border-line-2 focus-within:bg-panel-2 ${
+        dragging ? 'ring-1 ring-accent/40' : ''
+      }`}
       style={{
         borderColor: cardBorder ?? undefined,
-        borderRadius: 8,
+        borderRadius: 6,
+        boxShadow: '0 1px 2px rgba(0,0,0,0.25)',
       }}
       aria-label={`${item.shortId}: ${item.title}`}
     >
@@ -78,15 +77,14 @@ export function ItemCard({ item, dragging = false }: Props) {
         {item.title}
       </h3>
 
-      {item.description && !isResolvedOrDiscarded && (
+      {item.description && !isResolved && (
         <p className="text-[12px] leading-snug text-ink-muted line-clamp-2">
           {item.description.replace(/[`*#_~]/g, '').replace(/\n+/g, ' ')}
         </p>
       )}
 
       <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-line">
-        <Avatar user={assignee} size={20} faded={isResolvedOrDiscarded} />
-        {/* Project chip — only shown in "All projects" view */}
+        <Avatar user={assignee} size={20} faded={isResolved} />
         {currentProjectId === null && project && (
           <span className="text-[11px] text-ink-subtle truncate max-w-[120px]" title={project.name}>
             <span className="dot mr-1 align-middle" style={{ background: project.color, width: 6, height: 6 }} />
@@ -119,7 +117,6 @@ function waitingDays(iso: string) {
 }
 
 function labelStyle(label: string): React.CSSProperties {
-  // small palette by label name — keeps colors stable across renders
   const palette: Record<string, { bg: string; color: string }> = {
     billing:   { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' },
     api:       { bg: 'rgba(16,185,129,0.12)', color: '#10b981' },

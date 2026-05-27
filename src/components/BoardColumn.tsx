@@ -1,4 +1,4 @@
-import { useDndContext, useDroppable } from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Item, Status } from '@/lib/types';
@@ -24,68 +24,84 @@ function SortableCard({ item }: { item: Item }) {
   );
 }
 
-export function BoardColumn({ status, items }: { status: Status; items: Item[] }) {
+interface Props {
+  status: Status;
+  items: Item[];
+  isLast: boolean;
+}
+
+export function BoardColumn({ status, items, isLast }: Props) {
   const cfg = STATUS_CONFIG[status];
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const openNewItem = useUi((s) => s.openNewItem);
-  const dnd = useDndContext();
-  const isDragging = !!dnd.active;
-
-  // Visual feedback hierarchy:
-  //   no drag         → resting column border
-  //   drag in progress → faint accent dashed border on all columns
-  //   drag is over me → strong accent border + accent tint background
-  const borderColor = isOver
-    ? '#7170ff'
-    : isDragging
-      ? 'rgba(113,112,255,0.28)'
-      : cfg.border || '#1c1f25';
-  const borderStyle = isDragging && !isOver ? 'dashed' : 'solid';
 
   return (
     <section
       ref={setNodeRef}
-      className="w-[304px] shrink-0 flex flex-col rounded-[10px] p-[10px] pt-3"
+      className="w-[300px] shrink-0 flex flex-col h-full relative"
       style={{
-        background: isOver ? 'rgba(113,112,255,0.07)' : cfg.tintBg,
-        border: `1px ${borderStyle} ${borderColor}`,
-        transition: 'border-color 120ms ease, background 120ms ease',
+        paddingRight: isLast ? 0 : 12,
+        boxShadow: isLast
+          ? undefined
+          : 'inset -1px 0 0 0 rgba(255,255,255,0.06)',
       }}
     >
-      <header className="flex items-center gap-2 px-1.5 pb-3">
+      <header
+        className="flex items-center gap-2.5"
+        style={{
+          padding: '6px 4px 12px 4px',
+          margin: '0 0 10px',
+          borderBottom: '1px solid var(--line-1)',
+        }}
+      >
         <span
           className="dot"
           style={{
             background: cfg.dot,
-            boxShadow: status === 'active' ? '0 0 0 3px rgba(113,112,255,0.18)' : undefined,
+            boxShadow: status === 'active' ? '0 0 0 3px rgba(91,141,239,0.18)' : undefined,
           }}
         />
         <span
-          className="text-[12.5px] font-semibold"
-          style={cfg.dim ? { color: '#8a8f99' } : undefined}
+          className="font-semibold tracking-tight"
+          style={{ fontSize: 14.5, letterSpacing: '-0.018em', color: 'var(--ink-1)' }}
         >
           {cfg.label}
         </span>
-        <span className="meta-text">{items.length}</span>
+        <span
+          className="tabular-nums"
+          style={{
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'var(--ink-3)',
+            background: 'rgba(255,255,255,0.05)',
+            padding: '1px 7px',
+            borderRadius: 999,
+          }}
+        >
+          {items.length}
+        </span>
         <div className="flex-1" />
         <button
           type="button"
           aria-label={`Add item to ${cfg.label}`}
           onClick={() => openNewItem({ status })}
-          className="text-ink-subtle hover:text-ink-2 p-1 -mr-1 rounded transition-colors"
+          className="p-1 -mr-1 rounded-md transition-colors"
+          style={{ color: 'var(--ink-3)' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--ink-2)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--ink-3)')}
         >
           <Plus className="w-3.5 h-3.5" strokeWidth={2} />
         </button>
       </header>
 
       <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2 overflow-y-auto pr-0.5 flex-1 min-h-[120px]">
+        <div className="space-y-2 overflow-y-auto pr-0.5 flex-1 min-h-0">
           {items.length === 0 ? (
             <div
-              className="text-[11px] text-center italic flex items-center justify-center h-full min-h-[120px]"
-              style={{ color: isOver ? '#7170ff' : '#5d626c' }}
+              className="text-[11px] text-center italic flex items-center justify-center h-full min-h-[160px]"
+              style={{ color: isOver ? 'var(--accent-2)' : 'var(--ink-4)' }}
             >
-              {isDragging ? 'Drop here' : 'Empty — click + or drop here'}
+              {isOver ? 'Drop here' : 'Empty — click + or drop here'}
             </div>
           ) : (
             items.map((item) => <SortableCard key={item.id} item={item} />)

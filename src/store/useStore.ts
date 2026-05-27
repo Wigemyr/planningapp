@@ -11,6 +11,12 @@ import type {
   User,
   Workspace,
 } from '@/lib/types';
+import { LEGACY_STATUS_REMAP } from '@/lib/types';
+
+/** Normalize legacy statuses (e.g. 'discarded') to currently-supported ones. */
+function normalizeStatus(s: string): Status {
+  return (LEGACY_STATUS_REMAP[s] ?? s) as Status;
+}
 
 const CURRENT_WS_KEY = 'planning.currentWorkspaceId';
 
@@ -18,7 +24,7 @@ const CURRENT_WS_KEY = 'planning.currentWorkspaceId';
 
 interface DbProfile { id: string; email: string; name: string; initials: string; color: string; created_at: string; }
 interface DbWorkspace { id: string; name: string; initials: string; owner_id: string; created_at: string; }
-interface DbProject { id: string; workspace_id: string; name: string; color: string; short_prefix: string; created_at: string; }
+interface DbProject { id: string; workspace_id: string; name: string; color: string; short_prefix: string; position: number | null; created_at: string; }
 interface DbItem {
   id: string; workspace_id: string; project_id: string; short_id: string;
   title: string; description: string;
@@ -41,7 +47,12 @@ const dbToWorkspace = (r: DbWorkspace): Workspace => ({
   id: r.id, name: r.name, initials: r.initials,
 });
 const dbToProject = (r: DbProject): Project => ({
-  id: r.id, workspaceId: r.workspace_id, name: r.name, color: r.color, shortPrefix: r.short_prefix,
+  id: r.id,
+  workspaceId: r.workspace_id,
+  name: r.name,
+  color: r.color,
+  shortPrefix: r.short_prefix,
+  position: r.position ?? 0,
 });
 const dbToAttachment = (r: DbAttachment): Attachment => ({
   id: r.id,
@@ -58,7 +69,7 @@ const dbToItem = (r: DbItem, atts: DbAttachment[]): Item => ({
   projectId: r.project_id,
   title: r.title,
   description: r.description,
-  status: r.status,
+  status: normalizeStatus(r.status),
   type: r.type,
   priority: r.priority,
   labels: r.labels ?? [],
@@ -136,6 +147,7 @@ interface StoreState {
   // Projects
   createProject: (input: { name: string; color: string; shortPrefix: string }) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
+  reorderProjects: (orderedIds: string[]) => Promise<void>;
 
   // CRUD (async, optimistic)
   createItem: (input: NewItemInput) => Promise<Item>;
@@ -189,8 +201,6 @@ export const useStore = create<StoreState>((set, get) => ({
       }
 
       // Step 1: claim any pending invites for this email (idempotent if none).
-      // Handles the case where the owner invited an already-signed-up user
-      // (the handle_new_user trigger only fires for fresh signups).
       try {
         await supabase.rpc('claim_invites');
       } catch (err) {
@@ -212,8 +222,7 @@ export const useStore = create<StoreState>((set, get) => ({
         .map((m) => m.workspaces)
         .filter((w): w is DbWorkspace => !!w);
 
-      // Step 4: if no workspace, only auto-create if this is the very first
-      // user in the whole system. Otherwise show "pending invite" screen.
+      // Step 4: if no workspace, only auto-create if this is the very first user
       if (workspaces.length === 0) {
         const { data: isFirst } = await supabase.rpc('is_first_user');
         if (!isFirst) {
@@ -232,7 +241,6 @@ export const useStore = create<StoreState>((set, get) => ({
           });
           return;
         }
-        // First user — create a personal workspace
         const emailPrefix = (user.email ?? 'me').split('@')[0];
         const wsName = `${capitalize(emailPrefix)}'s workspace`;
         const initials = emailPrefix.slice(0, 1).toUpperCase();
@@ -274,7 +282,6 @@ export const useStore = create<StoreState>((set, get) => ({
       });
       const items = dbItems.map((r) => dbToItem(r, attByItem.get(r.id) ?? []));
 
-      // Step 6: load members + invites for current workspace
       const { membersForWs, invitesForWs } = await fetchMembersAndInvites(
         currentWs.id,
         users,
@@ -326,19 +333,23 @@ export const useStore = create<StoreState>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
-    // teardown is called by AuthGate when session becomes null
   },
 
   createProject: async (input) => {
     const wsId = get().currentWorkspaceId;
     if (!wsId) throw new Error('No active workspace');
     const id = crypto.randomUUID();
+    const wsProjects = get().projects.filter((p) => p.workspaceId === wsId);
+    const nextPosition = wsProjects.length === 0
+      ? 1
+      : Math.max(...wsProjects.map((p) => p.position)) + 1;
     const optimistic: Project = {
       id,
       workspaceId: wsId,
       name: input.name.trim() || 'Untitled project',
-      color: input.color || '#7170ff',
+      color: input.color || '#5b8def',
       shortPrefix: (input.shortPrefix || 'PRJ').toUpperCase().slice(0, 6),
+      position: nextPosition,
     };
     set((s) => ({ projects: [...s.projects, optimistic] }));
     const { data, error } = await supabase
@@ -349,6 +360,7 @@ export const useStore = create<StoreState>((set, get) => ({
         name: optimistic.name,
         color: optimistic.color,
         short_prefix: optimistic.shortPrefix,
+        position: optimistic.position,
       })
       .select()
       .single();
@@ -359,6 +371,26 @@ export const useStore = create<StoreState>((set, get) => ({
     const final = dbToProject(data as DbProject);
     set((s) => ({ projects: s.projects.map((p) => (p.id === id ? final : p)) }));
     return final;
+  },
+
+  reorderProjects: async (orderedIds) => {
+    const prev = get().projects;
+    const idToIndex = new Map(orderedIds.map((id, i) => [id, i + 1]));
+    set((s) => ({
+      projects: s.projects.map((p) =>
+        idToIndex.has(p.id) ? { ...p, position: idToIndex.get(p.id)! } : p,
+      ),
+    }));
+    try {
+      await Promise.all(
+        orderedIds.map((id, i) =>
+          supabase.from('projects').update({ position: i + 1 }).eq('id', id),
+        ),
+      );
+    } catch (err) {
+      set({ projects: prev });
+      throw err;
+    }
   },
 
   deleteProject: async (id) => {
@@ -386,7 +418,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const nowIso = new Date().toISOString();
     const targetStatus = input.status ?? 'backlog';
 
-    // Position: bugs land at top of column, others appended.
     const colItems = state.items.filter(
       (i) => i.projectId === input.projectId && i.status === targetStatus,
     );
@@ -395,9 +426,6 @@ export const useStore = create<StoreState>((set, get) => ({
         ? Math.min(0, ...colItems.map((i) => i.position)) - 1
         : Math.max(-1, ...colItems.map((i) => i.position)) + 1;
 
-    // Short id is allocated optimistically client-side from existing items
-    // visible to us. May collide if two clients create at the same instant —
-    // the DB unique constraint will catch it and we'll surface an error.
     const project = state.projects.find((p) => p.id === input.projectId);
     const prefix = project?.shortPrefix ?? 'ITM';
     const shortId = nextShortId(prefix, state.items.map((i) => i.shortId));
@@ -446,11 +474,9 @@ export const useStore = create<StoreState>((set, get) => ({
       .single();
 
     if (error || !data) {
-      // Rollback
       set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
       throw error ?? new Error('Failed to create item');
     }
-    // Merge authoritative server row
     const final = dbToItem(data as DbItem, []);
     set((s) => ({ items: s.items.map((i) => (i.id === id ? final : i)) }));
     return final;
@@ -460,7 +486,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const prev = get().items.find((i) => i.id === id);
     if (!prev) return;
 
-    // Compute derived timestamps
     const nowIso = new Date().toISOString();
     const merged: Item = {
       ...prev,
@@ -476,7 +501,6 @@ export const useStore = create<StoreState>((set, get) => ({
             : prev.resolvedAt,
     };
 
-    // Optimistic apply
     set((s) => ({ items: s.items.map((i) => (i.id === id ? merged : i)) }));
 
     const dbPatch: Record<string, unknown> = {};
@@ -496,7 +520,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const { error } = await supabase.from('items').update(dbPatch).eq('id', id);
     if (error) {
-      // Rollback
       set((s) => ({ items: s.items.map((i) => (i.id === id ? prev : i)) }));
       throw error;
     }
@@ -507,7 +530,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const moving = items.find((i) => i.id === id);
     if (!moving) return;
 
-    // Compute new positions for the target column
     const colItems = items
       .filter((i) => i.status === newStatus && i.id !== id)
       .sort((a, b) => a.position - b.position);
@@ -515,7 +537,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const idx = Math.max(0, Math.min(newIndex, newOrder.length));
     newOrder.splice(idx, 0, moving);
 
-    // Renumber positions in this column
     const positionUpdates: Array<{ id: string; position: number }> = newOrder.map(
       (it, i) => ({ id: it.id, position: i }),
     );
@@ -530,7 +551,6 @@ export const useStore = create<StoreState>((set, get) => ({
       updatedAt: i.updatedAt,
     }));
 
-    // Optimistic apply
     set((s) => ({
       items: s.items.map((i) => {
         if (i.id === id) {
@@ -551,9 +571,7 @@ export const useStore = create<StoreState>((set, get) => ({
       }),
     }));
 
-    // Persist: one row update per position change. Small column sizes make this OK.
     try {
-      // The moving item gets the rich patch
       const { error: movErr } = await supabase
         .from('items')
         .update({
@@ -567,7 +585,6 @@ export const useStore = create<StoreState>((set, get) => ({
         .eq('id', id);
       if (movErr) throw movErr;
 
-      // The other items only get the new position
       const others = positionUpdates.filter((p) => p.id !== id);
       await Promise.all(
         others.map((p) =>
@@ -575,7 +592,6 @@ export const useStore = create<StoreState>((set, get) => ({
         ),
       );
     } catch (err) {
-      // Rollback all
       set((s) => ({
         items: s.items.map((i) => {
           const snap = prevSnapshot.find((p) => p.id === i.id);
@@ -646,12 +662,10 @@ export const useStore = create<StoreState>((set, get) => ({
         .select()
         .single();
       if (insErr || !attRow) {
-        // Best-effort cleanup of orphaned object
         await supabase.storage.from(ATTACHMENTS_BUCKET).remove([storagePath]);
         throw insErr ?? new Error('Failed to register attachment');
       }
       const att = dbToAttachment(attRow as DbAttachment);
-      // Get a signed URL for immediate display
       const { data: signed } = await supabase.storage
         .from(ATTACHMENTS_BUCKET)
         .createSignedUrl(att.storagePath, 60 * 60 * 24);
@@ -673,7 +687,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const att = item.attachments.find((a) => a.id === attachmentId);
     if (!att) return;
 
-    // Optimistic local remove
     set((s) => ({
       items: s.items.map((i) =>
         i.id === itemId
@@ -687,7 +700,6 @@ export const useStore = create<StoreState>((set, get) => ({
       .delete()
       .eq('id', attachmentId);
     if (dbErr) {
-      // Rollback
       set((s) => ({
         items: s.items.map((i) =>
           i.id === itemId ? { ...i, attachments: [...i.attachments, att] } : i,
@@ -695,7 +707,6 @@ export const useStore = create<StoreState>((set, get) => ({
       }));
       throw dbErr;
     }
-    // Best-effort remove the storage object
     await supabase.storage.from(ATTACHMENTS_BUCKET).remove([att.storagePath]);
   },
 
@@ -710,7 +721,6 @@ export const useStore = create<StoreState>((set, get) => ({
     data.forEach((d, i) => {
       if (d.signedUrl) map.set(atts[i].id, d.signedUrl);
     });
-    // Merge URLs into local state for cache
     set((s) => ({
       items: s.items.map((it) => ({
         ...it,
@@ -730,7 +740,6 @@ export const useStore = create<StoreState>((set, get) => ({
     const ws = get().workspaces.find((w) => w.id === id);
     if (!ws) return;
     localStorage.setItem(CURRENT_WS_KEY, id);
-    // Re-bootstrap to load this workspace's data and re-bind realtime
     await get().teardown();
     await get().bootstrap();
   },
@@ -792,7 +801,6 @@ async function fetchMembersAndInvites(
   knownUsers: User[],
 ): Promise<{ membersForWs: WorkspaceMember[]; invitesForWs: PendingInvite[] }> {
   const userMap = new Map(knownUsers.map((u) => [u.id, u]));
-  // Members + their profiles (in case we don't already have them in users)
   const [{ data: membersRes }, { data: profilesRes }, { data: invitesRes }] =
     await Promise.all([
       supabase
@@ -842,8 +850,6 @@ async function fetchMembersAndInvites(
   return { membersForWs, invitesForWs };
 }
 
-/* ---------- Sorting selector (used by Board) ---------- */
-
 export function sortForColumn(a: Item, b: Item): number {
   return a.position - b.position;
 }
@@ -856,7 +862,6 @@ export function selectItemsByStatus(items: Item[], projectId: string | null) {
     waiting: [],
     blocked: [],
     resolved: [],
-    discarded: [],
   };
   for (const i of filtered) byStatus[i.status].push(i);
   for (const k of Object.keys(byStatus) as Status[]) {
@@ -864,8 +869,6 @@ export function selectItemsByStatus(items: Item[], projectId: string | null) {
   }
   return byStatus;
 }
-
-/* ---------- Realtime subscriptions ---------- */
 
 function startRealtime(
   workspaceId: string,
@@ -894,7 +897,6 @@ function startRealtime(
           return;
         }
         const row = payload.new as DbItem;
-        // Preserve any locally-attached attachments+url state
         const existing = get().items.find((i) => i.id === row.id);
         const next = dbToItem(row, []);
         next.attachments = existing?.attachments ?? [];
@@ -936,8 +938,8 @@ function startRealtime(
       async (payload) => {
         const row = payload.new as DbAttachment;
         const item = get().items.find((i) => i.id === row.item_id);
-        if (!item) return; // not in our workspace
-        if (item.attachments.find((a) => a.id === row.id)) return; // we already have it
+        if (!item) return;
+        if (item.attachments.find((a) => a.id === row.id)) return;
         const att = dbToAttachment(row);
         const { data: signed } = await supabase.storage
           .from(ATTACHMENTS_BUCKET)
@@ -971,8 +973,6 @@ function startRealtime(
 
   set({ channel });
 }
-
-/* ---------- helpers ---------- */
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);

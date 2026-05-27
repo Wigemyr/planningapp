@@ -1,6 +1,7 @@
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Board } from '@/components/Board';
+import { BoardFilters } from '@/components/BoardFilters';
 import { Plus } from '@/components/icons';
 
 export default function BoardRoute() {
@@ -16,14 +17,15 @@ export default function BoardRoute() {
   const viewItems = currentProjectId
     ? items.filter((i) => i.projectId === currentProjectId)
     : items;
-  const activeCount = viewItems.filter(
-    (i) => i.status !== 'resolved' && i.status !== 'discarded',
+  const activeCount = viewItems.filter((i) => i.status !== 'resolved').length;
+  const openBugs = items.filter(
+    (i) => i.type === 'bug' && i.status !== 'resolved',
   ).length;
 
   return (
     <>
-      <header className="h-12 border-b border-line flex items-center px-4 gap-3 shrink-0">
-        <div className="flex items-center gap-2 text-[12.5px] min-w-0">
+      <header className="h-12 border-b border-line flex items-center px-5 gap-3 shrink-0">
+        <div className="flex items-center gap-2 text-[13px] min-w-0">
           <span className="text-ink-muted truncate">{workspace?.name}</span>
           <span className="text-ink-subtle">›</span>
           <span className="font-medium truncate">
@@ -31,8 +33,8 @@ export default function BoardRoute() {
           </span>
         </div>
         <span
-          className="text-[10.5px] px-1.5 py-0.5 rounded shrink-0"
-          style={{ background: 'rgba(113,112,255,0.12)', color: '#9b9aff' }}
+          className="pill"
+          style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--ink-2)' }}
         >
           {activeCount} active
         </span>
@@ -42,31 +44,21 @@ export default function BoardRoute() {
         <button
           type="button"
           onClick={() => openNewItem()}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12.5px] font-medium text-white bg-accent hover:bg-accent-2 transition-colors"
+          className="surface-button"
+          style={{ width: 'auto', paddingRight: 10 }}
         >
-          <Plus className="w-3.5 h-3.5" strokeWidth={2.25} />
-          New item
-          <span
-            className="kbd"
-            style={{
-              background: 'rgba(0,0,0,0.28)',
-              borderColor: 'rgba(255,255,255,0.18)',
-              color: 'rgba(255,255,255,0.85)',
-            }}
-          >
-            C
-          </span>
+          <Plus className="w-3.5 h-3.5" strokeWidth={2} />
+          <span>New item</span>
+          <span className="kbd ml-1">C</span>
         </button>
       </header>
 
-      <div className="h-9 border-b border-line flex items-center px-4 gap-2 shrink-0 text-[12px] text-ink-muted">
+      <BoardFilters />
+
+      <div className="h-7 px-5 flex items-center text-[11.5px] text-ink-muted shrink-0">
         <span>{viewItems.length} items</span>
-        <span className="text-ink-subtle">·</span>
-        <span>{items.filter((i) => i.type === 'bug' && i.status !== 'resolved' && i.status !== 'discarded').length} open bugs</span>
-        <div className="flex-1" />
-        <span className="text-[11px] text-ink-subtle">
-          Drag to reorder · Bugs auto-pin to top on creation
-        </span>
+        <span className="px-1.5 text-ink-subtle">·</span>
+        <span>{openBugs} open bugs</span>
       </div>
 
       <Board />
