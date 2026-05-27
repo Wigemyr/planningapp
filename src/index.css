@@ -43,12 +43,33 @@
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* Custom cursor: refined pointer in lighter grey with subtle white outline.
-     * Falls back to the OS default if the data URL can't be loaded. Hot-spot at (3,2). */
+    /* Custom cursor: refined arrow in lighter grey with subtle white outline.
+     * Same SVG is reused on clickables below so the cursor doesn't morph into the
+     * OS default hand (which is huge + colored on Windows). Hot-spot at (3,2). */
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23c4c5cb' stroke='%23f5f5f7' stroke-width='1.2' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, default;
   }
-  /* Make text-input fields use the I-beam cursor so editing feels normal. */
-  input, textarea, [contenteditable="true"] {
+  /* Override the OS hand on every clickable so the cursor stays our grey arrow.
+   * The final fallback is still `pointer` if the SVG can't load. */
+  button:not(:disabled),
+  a[href],
+  [role="button"],
+  summary,
+  label[for],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  [class~="cursor-pointer"],
+  [class~="cursor-grab"],
+  [class~="cursor-move"] {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23c4c5cb' stroke='%23f5f5f7' stroke-width='1.2' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, pointer;
+  }
+  /* Text-input fields keep the I-beam so editing feels normal. */
+  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  [contenteditable="true"] {
     cursor: text;
   }
   *:focus-visible {
