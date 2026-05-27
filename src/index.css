@@ -43,6 +43,13 @@
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Custom cursor: refined pointer in lighter grey with subtle white outline.
+     * Falls back to the OS default if the data URL can't be loaded. Hot-spot at (3,2). */
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23c4c5cb' stroke='%23f5f5f7' stroke-width='1.2' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, default;
+  }
+  /* Make text-input fields use the I-beam cursor so editing feels normal. */
+  input, textarea, [contenteditable="true"] {
+    cursor: text;
   }
   *:focus-visible {
     outline: 2px solid var(--accent);
@@ -77,67 +84,76 @@
     @apply text-[11px] text-ink-muted tabular-nums;
   }
 
-  /* ===== Responsive board layout =====
-   * Below 1024px (narrow viewport / vertical monitor): columns stack vertically
-   *   with horizontal hairline separators between them; the whole board scrolls
-   *   vertically.
-   * At >= 1024px: classic horizontal Kanban — columns share width via flex-1
-   *   (min 280px each), the board scrolls horizontally if content overflows. */
+  /* ===== Board layout =====
+   * Two explicit modes driven by a class on .board-outer:
+   *   .board-mode-horizontal: classic Kanban, columns flex-grow with min 280px,
+   *     board scrolls horizontally if needed, each column has its own scroll.
+   *   .board-mode-vertical: columns stack vertically, separators flip to bottom,
+   *     whole board scrolls as one (good for portrait monitors).
+   * Default in code is picked based on viewport on first load; user can toggle
+   * via the layout button — choice persists in localStorage. */
   .board-outer {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
   }
   .board-cols {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
     min-width: 100%;
     padding: 12px 16px 0;
   }
   .board-col {
-    width: 100%;
     display: flex;
     flex-direction: column;
     position: relative;
-    padding: 0 12px 12px;
-    min-width: 0;
-  }
-  .board-col:not(:last-child) {
-    box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.06);
   }
   .board-col-cards {
     display: flex;
     flex-direction: column;
     gap: 8px;
   }
-  @media (min-width: 1024px) {
-    .board-outer {
-      overflow-y: hidden;
-      overflow-x: auto;
-    }
-    .board-cols {
-      flex-direction: row;
-      gap: 0;
-      height: 100%;
-      padding: 12px 16px 0;
-    }
-    .board-col {
-      flex: 1 1 0;
-      min-width: 280px;
-      height: 100%;
-      padding: 0 12px;
-    }
-    .board-col:not(:last-child) {
-      box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.06);
-    }
-    .board-col-cards {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
-      padding-right: 2px;
-    }
+
+  /* ---- Horizontal mode ---- */
+  .board-mode-horizontal {
+    overflow-y: hidden;
+    overflow-x: auto;
+  }
+  .board-mode-horizontal .board-cols {
+    flex-direction: row;
+    gap: 0;
+    height: 100%;
+  }
+  .board-mode-horizontal .board-col {
+    flex: 1 1 0;
+    min-width: 280px;
+    height: 100%;
+    padding: 0 12px;
+  }
+  .board-mode-horizontal .board-col:not(:last-child) {
+    box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.06);
+  }
+  .board-mode-horizontal .board-col-cards {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  /* ---- Vertical mode ---- */
+  .board-mode-vertical {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .board-mode-vertical .board-cols {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .board-mode-vertical .board-col {
+    width: 100%;
+    min-width: 0;
+    padding: 0 12px 12px;
+  }
+  .board-mode-vertical .board-col:not(:last-child) {
+    box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.06);
   }
 
   /* Sidebar */

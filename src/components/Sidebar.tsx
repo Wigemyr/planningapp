@@ -42,6 +42,8 @@ export function Sidebar() {
   const currentWorkspaceId = useStore((s) => s.currentWorkspaceId);
   const currentProjectId = useStore((s) => s.currentProjectId);
   const setCurrentProject = useStore((s) => s.setCurrentProject);
+  const setCurrentWorkspace = useStore((s) => s.setCurrentWorkspace);
+  const createWorkspace = useStore((s) => s.createWorkspace);
   const items = useStore((s) => s.items);
   const currentUser = useStore((s) => s.currentUser());
   const signOut = useStore((s) => s.signOut);
@@ -60,6 +62,9 @@ export function Sidebar() {
   const [accountOpen, setAccountOpen] = useState(false);
   const accountRef = useRef<HTMLDivElement>(null);
 
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
+  const workspaceMenuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!accountOpen) return;
     function onClick(e: MouseEvent) {
@@ -70,6 +75,28 @@ export function Sidebar() {
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
   }, [accountOpen]);
+
+  useEffect(() => {
+    if (!workspaceMenuOpen) return;
+    function onClick(e: MouseEvent) {
+      if (workspaceMenuRef.current && !workspaceMenuRef.current.contains(e.target as Node)) {
+        setWorkspaceMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [workspaceMenuOpen]);
+
+  async function handleCreateWorkspace() {
+    setWorkspaceMenuOpen(false);
+    const name = window.prompt('Name your new workspace');
+    if (!name || !name.trim()) return;
+    try {
+      await createWorkspace(name);
+    } catch (err) {
+      window.alert(err instanceof Error ? err.message : 'Failed to create workspace');
+    }
+  }
 
   const workspace = workspaces.find((w) => w.id === currentWorkspaceId);
 
@@ -87,7 +114,6 @@ export function Sidebar() {
     [projects],
   );
 
-  // ---- DnD for projects reorder ----
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -114,26 +140,21 @@ export function Sidebar() {
         transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      {/* Top: workspace switcher */}
-      <div className="p-2">
+      {/* Top: workspace switcher with dropdown of all workspaces + Create new */}
+      <div className="p-2 relative" ref={workspaceMenuRef}>
         <button
           type="button"
           className="surface-button"
           title={workspace?.name ?? ''}
           aria-haspopup="listbox"
-          // Center the initials badge when collapsed so it doesn't sit flush-left.
+          aria-expanded={workspaceMenuOpen}
+          onClick={() => setWorkspaceMenuOpen((o) => !o)}
           style={collapsed ? { justifyContent: 'center', padding: 0 } : undefined}
         >
           {collapsed ? (
             <div
               className="flex items-center justify-center text-[10px] font-semibold text-white"
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 5,
-                background: '#4b5a73',
-                letterSpacing: 0,
-              }}
+              style={{ width: 20, height: 20, borderRadius: 5, background: '#4b5a73', letterSpacing: 0 }}
             >
               {workspace?.initials ?? '?'}
             </div>
@@ -144,9 +165,60 @@ export function Sidebar() {
             </>
           )}
         </button>
+
+        {workspaceMenuOpen && (
+          <div
+            role="menu"
+            className="absolute top-full mt-1 border border-line-2 shadow-2xl shadow-black/40 py-1 z-30"
+            style={{
+              background: 'rgba(28,28,32,0.96)',
+              backdropFilter: 'blur(14px)',
+              borderRadius: 8,
+              left: 8,
+              right: collapsed ? undefined : 8,
+              minWidth: collapsed ? 220 : undefined,
+            }}
+          >
+            <div className="px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
+              Workspaces
+            </div>
+            {workspaces.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setWorkspaceMenuOpen(false);
+                  if (w.id !== currentWorkspaceId) void setCurrentWorkspace(w.id);
+                }}
+                className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-white/[0.05] hover:text-ink flex items-center gap-2.5 transition-colors"
+              >
+                <div
+                  className="flex items-center justify-center text-[10px] font-semibold text-white shrink-0"
+                  style={{ width: 18, height: 18, borderRadius: 4, background: '#4b5a73' }}
+                >
+                  {w.initials}
+                </div>
+                <span className="flex-1 truncate">{w.name}</span>
+                {w.id === currentWorkspaceId && (
+                  <span className="text-[10px] text-ink-subtle">Current</span>
+                )}
+              </button>
+            ))}
+            <div className="border-t border-line my-1" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={handleCreateWorkspace}
+              className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-white/[0.05] hover:text-ink flex items-center gap-2 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+              Create workspace
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Section heading */}
       {!collapsed && (
         <div className="px-4 mt-1.5 mb-1.5 flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
@@ -163,7 +235,6 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Project list */}
       <div className="px-2 flex-1 overflow-y-auto space-y-0.5">
         <button
           type="button"
@@ -222,7 +293,6 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* Bottom collapse toggle */}
       <div className="px-2 pb-1">
         <button
           type="button"
@@ -241,7 +311,6 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Account */}
       <div
         ref={accountRef}
         className="relative border-t border-line p-2 flex items-center gap-2"
@@ -309,8 +378,6 @@ export function Sidebar() {
   );
 }
 
-/* ---------- Sortable project row ---------- */
-
 interface RowProps {
   project: Project;
   active: boolean;
@@ -373,11 +440,7 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onDel
         >
           <Folder
             className="w-4 h-4 shrink-0"
-            style={{
-              color: project.color,
-              fill: project.color,
-              fillOpacity: 0.18,
-            }}
+            style={{ color: project.color, fill: project.color, fillOpacity: 0.18 }}
             strokeWidth={1.5}
           />
           {!collapsed && (

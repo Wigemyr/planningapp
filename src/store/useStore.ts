@@ -123,53 +123,44 @@ interface StoreState {
   // ui
   currentWorkspaceId: string | null;
   currentProjectId: string | null;
-  /** True when the signed-in user has no workspace and no pending invite. */
   needsInvite: boolean;
 
-  // status
   loading: boolean;
   errorMsg: string | null;
 
-  // realtime
   channel: RealtimeChannel | null;
 
-  // lifecycle
   bootstrap: () => Promise<void>;
   teardown: () => Promise<void>;
   signOut: () => Promise<void>;
 
-  // members & invites
   inviteMember: (email: string) => Promise<{ kind: 'added_existing' | 'pending_invite' }>;
   revokeInvite: (inviteId: string) => Promise<void>;
   removeMember: (userId: string) => Promise<void>;
   refreshMembersAndInvites: () => Promise<void>;
 
-  // Projects
+  createWorkspace: (name: string) => Promise<Workspace>;
+
   createProject: (input: { name: string; color: string; shortPrefix: string }) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
   reorderProjects: (orderedIds: string[]) => Promise<void>;
 
-  // CRUD (async, optimistic)
   createItem: (input: NewItemInput) => Promise<Item>;
   updateItem: (id: string, patch: Partial<Item>) => Promise<void>;
   moveItem: (id: string, newStatus: Status, newIndex: number) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 
-  // attachments
   addAttachment: (itemId: string, file: File) => Promise<void>;
   addAttachmentsFromBlobs: (
     itemId: string,
     blobs: { blob: Blob; filename?: string }[],
   ) => Promise<void>;
   removeAttachment: (itemId: string, attachmentId: string) => Promise<void>;
-  /** Refresh signed URLs for the given attachment ids. */
   refreshAttachmentUrls: (atts: Attachment[]) => Promise<Map<string, string>>;
 
-  // ui
   setCurrentProject: (projectId: string | null) => void;
   setCurrentWorkspace: (id: string) => Promise<void>;
 
-  // helpers
   currentUser: () => User | undefined;
   currentWorkspace: () => Workspace | undefined;
 }
@@ -200,19 +191,16 @@ export const useStore = create<StoreState>((set, get) => ({
         return;
       }
 
-      // Step 1: claim any pending invites for this email (idempotent if none).
       try {
         await supabase.rpc('claim_invites');
       } catch (err) {
         console.warn('[planning] claim_invites failed (non-fatal)', err);
       }
 
-      // Step 2: load every profile we can see
       const { data: profilesRes } = await supabase.from('profiles').select('*');
       const profiles = (profilesRes ?? []) as DbProfile[];
       const users = profiles.map(dbToUser);
 
-      // Step 3: my workspace memberships
       const { data: memberRes } = await supabase
         .from('workspace_members')
         .select('workspace_id, role, workspaces(*)')
@@ -222,7 +210,6 @@ export const useStore = create<StoreState>((set, get) => ({
         .map((m) => m.workspaces)
         .filter((w): w is DbWorkspace => !!w);
 
-      // Step 4: if no workspace, only auto-create if this is the very first user
       if (workspaces.length === 0) {
         const { data: isFirst } = await supabase.rpc('is_first_user');
         if (!isFirst) {
@@ -258,7 +245,6 @@ export const useStore = create<StoreState>((set, get) => ({
         workspaces = [newWs as DbWorkspace];
       }
 
-      // Step 5: pick current workspace and load its data
       const persistedWsId = localStorage.getItem(CURRENT_WS_KEY);
       const currentWs = workspaces.find((w) => w.id === persistedWsId) ?? workspaces[0];
 
@@ -333,6 +319,39 @@ export const useStore = create<StoreState>((set, get) => ({
 
   signOut: async () => {
     await supabase.auth.signOut();
+  },
+
+  createWorkspace: async (name) => {
+    const userId = get().currentUserId;
+    if (!userId) throw new Error('Not signed in');
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('Workspace name is required');
+    const initials = trimmed.slice(0, 1).toUpperCase() || '?';
+
+    const { data: newWs, error: wsErr } = await supabase
+      .from('workspaces')
+      .insert({ name: trimmed, initials, owner_id: userId })
+      .select()
+      .single();
+    if (wsErr || !newWs) throw wsErr ?? new Error('Failed to create workspace');
+
+    const { error: memErr } = await supabase
+      .from('workspace_members')
+      .insert({ workspace_id: newWs.id, user_id: userId, role: 'owner' });
+    if (memErr) throw memErr;
+
+    // Seed default projects so the new workspace isn't empty
+    try {
+      await supabase.rpc('seed_default_projects', { p_workspace_id: newWs.id });
+    } catch (err) {
+      console.warn('[planning] seed_default_projects failed (non-fatal)', err);
+    }
+
+    const ws = dbToWorkspace(newWs as DbWorkspace);
+    set((s) => ({ workspaces: [...s.workspaces, ws] }));
+    // Switch into the new workspace — re-bootstrap loads its data + realtime.
+    await get().setCurrentWorkspace(ws.id);
+    return ws;
   },
 
   createProject: async (input) => {

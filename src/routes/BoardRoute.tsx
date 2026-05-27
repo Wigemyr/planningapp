@@ -2,7 +2,7 @@ import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Board } from '@/components/Board';
 import { BoardFilters } from '@/components/BoardFilters';
-import { Plus } from '@/components/icons';
+import { Plus, Columns, Rows3 } from '@/components/icons';
 
 export default function BoardRoute() {
   const projects = useStore((s) => s.projects);
@@ -11,6 +11,8 @@ export default function BoardRoute() {
   const currentProjectId = useStore((s) => s.currentProjectId);
   const items = useStore((s) => s.items);
   const openNewItem = useUi((s) => s.openNewItem);
+  const boardLayout = useUi((s) => s.boardLayout);
+  const toggleBoardLayout = useUi((s) => s.toggleBoardLayout);
 
   const workspace = workspaces.find((w) => w.id === currentWorkspaceId);
   const project = projects.find((p) => p.id === currentProjectId);
@@ -40,6 +42,25 @@ export default function BoardRoute() {
         </span>
 
         <div className="flex-1" />
+
+        {/* Layout toggle: shows the icon of the OTHER mode (the one you'd switch to). */}
+        <button
+          type="button"
+          onClick={toggleBoardLayout}
+          className="p-1.5 rounded-md text-ink-muted hover:text-ink-2 hover:bg-white/[0.05] transition-colors"
+          title={
+            boardLayout === 'horizontal'
+              ? 'Switch to vertical layout'
+              : 'Switch to horizontal layout'
+          }
+          aria-label="Toggle board layout"
+        >
+          {boardLayout === 'horizontal' ? (
+            <Rows3 className="w-4 h-4" strokeWidth={1.75} />
+          ) : (
+            <Columns className="w-4 h-4" strokeWidth={1.75} />
+          )}
+        </button>
 
         <button
           type="button"
