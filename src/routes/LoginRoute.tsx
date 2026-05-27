@@ -1,6 +1,19 @@
 import { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
+/** The canonical public production URL (not a protected team alias). */
+const PROD_ORIGIN = 'https://planningapp-five.vercel.app';
+
+/** Prefer the canonical prod URL when running in production so magic-link emails
+ * never bake in a Vercel-SSO-protected redirect. Fall back to the current origin
+ * for local dev. */
+function prodOrCurrentOrigin(): string {
+  if (typeof window === 'undefined') return PROD_ORIGIN;
+  const { hostname, origin } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return origin;
+  return PROD_ORIGIN;
+}
+
 export default function LoginRoute() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
@@ -14,7 +27,10 @@ export default function LoginRoute() {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: window.location.origin,
+        // Pin the magic-link redirect to the public production URL so the email
+        // never lands on a Vercel-SSO-protected team alias. Local dev still works
+        // because Vite serves from window.location.origin.
+        emailRedirectTo: prodOrCurrentOrigin(),
         shouldCreateUser: true,
       },
     });
