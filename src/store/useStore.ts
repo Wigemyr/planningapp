@@ -27,7 +27,7 @@ const CURRENT_WS_KEY = 'planning.currentWorkspaceId';
 
 interface DbProfile { id: string; email: string; name: string; initials: string; color: string; created_at: string; }
 interface DbWorkspace { id: string; name: string; initials: string; owner_id: string; created_at: string; }
-interface DbProject { id: string; workspace_id: string; name: string; color: string; short_prefix: string; position: number | null; created_at: string; }
+interface DbProject { id: string; workspace_id: string; name: string; color: string; icon: string | null; short_prefix: string; position: number | null; created_at: string; }
 interface DbItem {
   id: string; workspace_id: string; project_id: string; short_id: string;
   title: string; description: string;
@@ -64,6 +64,7 @@ const dbToProject = (r: DbProject): Project => ({
   workspaceId: r.workspace_id,
   name: r.name,
   color: r.color,
+  icon: r.icon ?? 'folder',
   shortPrefix: r.short_prefix,
   position: r.position ?? 0,
 });
@@ -187,7 +188,8 @@ interface StoreState {
   deleteWorkspace: (id: string) => Promise<void>;
 
   // Projects
-  createProject: (input: { name: string; color: string; shortPrefix: string }) => Promise<Project>;
+  createProject: (input: { name: string; color: string; shortPrefix: string; icon?: string }) => Promise<Project>;
+  updateProject: (id: string, patch: { name?: string; color?: string; icon?: string }) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   reorderProjects: (orderedIds: string[]) => Promise<void>;
 
@@ -499,6 +501,7 @@ export const useStore = create<StoreState>((set, get) => ({
       workspaceId: wsId,
       name: input.name.trim() || 'Untitled project',
       color: input.color || '#5b8def',
+      icon: input.icon || 'folder',
       shortPrefix: (input.shortPrefix || 'PRJ').toUpperCase().slice(0, 6),
       position: nextPosition,
     };
@@ -510,6 +513,7 @@ export const useStore = create<StoreState>((set, get) => ({
         workspace_id: wsId,
         name: optimistic.name,
         color: optimistic.color,
+        icon: optimistic.icon,
         short_prefix: optimistic.shortPrefix,
         position: optimistic.position,
       })
@@ -543,6 +547,31 @@ export const useStore = create<StoreState>((set, get) => ({
       // Rollback to previous order on failure.
       set({ projects: prev });
       throw err;
+    }
+  },
+
+  updateProject: async (id, patch) => {
+    const prev = get().projects.find((p) => p.id === id);
+    if (!prev) return;
+    const merged: Project = {
+      ...prev,
+      ...(patch.name !== undefined ? { name: patch.name } : {}),
+      ...(patch.color !== undefined ? { color: patch.color } : {}),
+      ...(patch.icon !== undefined ? { icon: patch.icon } : {}),
+    };
+    set((s) => ({
+      projects: s.projects.map((p) => (p.id === id ? merged : p)),
+    }));
+    const dbPatch: Record<string, unknown> = {};
+    if (patch.name !== undefined) dbPatch.name = merged.name;
+    if (patch.color !== undefined) dbPatch.color = merged.color;
+    if (patch.icon !== undefined) dbPatch.icon = merged.icon;
+    const { error } = await supabase.from('projects').update(dbPatch).eq('id', id);
+    if (error) {
+      set((s) => ({
+        projects: s.projects.map((p) => (p.id === id ? prev : p)),
+      }));
+      throw error;
     }
   },
 
