@@ -4,7 +4,7 @@ import { STATUS_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL } from '@/lib/constants';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
-import { Bug, Paperclip, Clock, Trash2 } from './icons';
+import { Bug, Paperclip, MessageSquare, Clock, Trash2 } from './icons';
 import { stripTags } from './RichTextEditor';
 
 /** Warm-neutral palette per item type. All four types are distinct so you can
@@ -27,6 +27,12 @@ export function ItemCard({ item, dragging = false }: Props) {
   const projects = useStore((s) => s.projects);
   const currentProjectId = useStore((s) => s.currentProjectId);
   const deleteItem = useStore((s) => s.deleteItem);
+  // Number of comments on this item, drives the discussion-count chip below.
+  // Selected as a primitive so unrelated comment churn elsewhere doesn't
+  // re-render this card.
+  const commentCount = useStore(
+    (s) => s.comments.filter((c) => c.itemId === item.id).length,
+  );
   const openConfirm = useUi((s) => s.openConfirm);
   const openContextMenu = useUi((s) => s.openContextMenu);
 
@@ -147,6 +153,15 @@ export function ItemCard({ item, dragging = false }: Props) {
           </span>
         )}
         <div className="flex-1" />
+        {commentCount > 0 && (
+          <span
+            className="text-[11px] flex items-center gap-1 text-ink-muted"
+            title={`${commentCount} comment${commentCount > 1 ? 's' : ''}`}
+          >
+            <MessageSquare className="w-3 h-3" strokeWidth={1.75} />
+            {commentCount}
+          </span>
+        )}
         {item.attachments.length > 0 && (
           <span className="text-[11px] flex items-center gap-1 text-ink-muted" title={`${item.attachments.length} attachment(s)`}>
             <Paperclip className="w-3 h-3" strokeWidth={1.75} />
