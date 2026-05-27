@@ -48,4 +48,7 @@ export {
   Strikethrough,
   List,
   ListOrdered,
+  Pencil,
+  Send,
+  Reply,
 } from 'lucide-react';
