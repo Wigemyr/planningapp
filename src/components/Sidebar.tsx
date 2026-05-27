@@ -29,7 +29,6 @@ import {
   Folder,
   Layers,
   GripVertical,
-  MoreHorizontal,
   Trash2,
   PanelLeftClose,
   PanelLeftOpen,
@@ -112,11 +111,12 @@ export function Sidebar() {
     });
   }
 
-  function handleDeleteCurrentWorkspace() {
+  function handleDeleteWorkspaceById(id: string) {
     setWorkspaceMenuOpen(false);
-    if (!workspace) return;
+    const target = workspaces.find((w) => w.id === id);
+    if (!target) return;
     openConfirm({
-      title: `Delete workspace "${workspace.name}"?`,
+      title: `Delete workspace "${target.name}"?`,
       description: (
         <>
           This permanently deletes the workspace along with{' '}
@@ -126,8 +126,32 @@ export function Sidebar() {
       ),
       confirmLabel: 'Delete workspace',
       danger: true,
-      onConfirm: () => deleteWorkspace(workspace.id),
+      onConfirm: async () => {
+        try {
+          await deleteWorkspace(id);
+        } catch (err) {
+          window.alert(
+            err instanceof Error
+              ? err.message
+              : 'Failed to delete workspace (you may not be the owner).',
+          );
+          throw err;
+        }
+      },
     });
+  }
+
+  function openWorkspaceContextMenu(e: React.MouseEvent, id: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    openContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Delete workspace',
+        icon: <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />,
+        danger: true,
+        onClick: () => handleDeleteWorkspaceById(id),
+      },
+    ]);
   }
 
   function openProjectContextMenu(e: React.MouseEvent, p: Project) {
@@ -158,6 +182,7 @@ export function Sidebar() {
     [projects],
   );
 
+  // ---- DnD for projects reorder ----
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -184,6 +209,7 @@ export function Sidebar() {
         transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
+      {/* Top: workspace switcher with dropdown of all workspaces + Create new */}
       <div className="p-2 relative" ref={workspaceMenuRef}>
         <button
           type="button"
@@ -192,12 +218,19 @@ export function Sidebar() {
           aria-haspopup="listbox"
           aria-expanded={workspaceMenuOpen}
           onClick={() => setWorkspaceMenuOpen((o) => !o)}
+          // Center the initials badge when collapsed so it doesn't sit flush-left.
           style={collapsed ? { justifyContent: 'center', padding: 0 } : undefined}
         >
           {collapsed ? (
             <div
               className="flex items-center justify-center text-[10px] font-semibold text-white"
-              style={{ width: 20, height: 20, borderRadius: 5, background: '#4b5a73', letterSpacing: 0 }}
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 5,
+                background: '#4b5a73',
+                letterSpacing: 0,
+              }}
             >
               {workspace?.initials ?? '?'}
             </div>
@@ -234,6 +267,7 @@ export function Sidebar() {
                   setWorkspaceMenuOpen(false);
                   if (w.id !== currentWorkspaceId) void setCurrentWorkspace(w.id);
                 }}
+                onContextMenu={(e) => openWorkspaceContextMenu(e, w.id)}
                 className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-white/[0.05] hover:text-ink flex items-center gap-2.5 transition-colors"
               >
                 <div
@@ -262,34 +296,43 @@ export function Sidebar() {
               <button
                 type="button"
                 role="menuitem"
-                onClick={handleDeleteCurrentWorkspace}
+                onClick={() => handleDeleteWorkspaceById(workspace.id)}
                 className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-[rgba(198,110,107,0.12)] hover:text-[#d68a86] flex items-center gap-2 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
                 Delete current workspace
               </button>
             )}
+            <div className="px-3 py-1 text-[10.5px] text-ink-subtle">
+              Right-click any workspace to delete it.
+            </div>
           </div>
         )}
       </div>
 
+      {/* Section heading — outer px-2 + inner px-2.5 puts the "+" right edge on
+       * the same x axis as the workspace chevron and the per-row counts. */}
       {!collapsed && (
-        <div className="px-4 mt-1.5 mb-1.5 flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
-            Projects
-          </span>
-          <button
-            type="button"
-            onClick={openNewProject}
-            className="text-ink-subtle hover:text-ink-2 p-0.5 rounded transition-colors"
-            aria-label="New project"
-          >
-            <Plus className="w-3 h-3" strokeWidth={2} />
-          </button>
+        <div className="px-2 mt-1.5 mb-1.5">
+          <div className="flex items-center justify-between px-2.5">
+            <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
+              Projects
+            </span>
+            <button
+              type="button"
+              onClick={openNewProject}
+              className="text-ink-subtle hover:text-ink-2 rounded transition-colors"
+              aria-label="New project"
+            >
+              <Plus className="w-3 h-3" strokeWidth={2} />
+            </button>
+          </div>
         </div>
       )}
 
+      {/* Project list */}
       <div className="px-2 flex-1 overflow-y-auto space-y-0.5">
+        {/* All projects */}
         <button
           type="button"
           onClick={() => setCurrentProject(null)}
@@ -325,7 +368,6 @@ export function Sidebar() {
                 count={projectCounts.get(p.id) ?? 0}
                 collapsed={collapsed}
                 onSelect={() => setCurrentProject(p.id)}
-                onDelete={() => handleDeleteProject(p)}
                 onContextMenu={(e) => openProjectContextMenu(e, p)}
               />
             ))}
@@ -344,6 +386,7 @@ export function Sidebar() {
         )}
       </div>
 
+      {/* Bottom collapse toggle */}
       <div className="px-2 pb-1">
         <button
           type="button"
@@ -362,6 +405,7 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* Account */}
       <div
         ref={accountRef}
         className="relative border-t border-line p-2 flex items-center gap-2"
@@ -429,32 +473,20 @@ export function Sidebar() {
   );
 }
 
+/* ---------- Sortable project row ---------- */
+
 interface RowProps {
   project: Project;
   active: boolean;
   count: number;
   collapsed: boolean;
   onSelect: () => void;
-  onDelete: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function SortableProjectRow({ project, active, count, collapsed, onSelect, onDelete, onContextMenu }: RowProps) {
+function SortableProjectRow({ project, active, count, collapsed, onSelect, onContextMenu }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: project.id });
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, [menuOpen]);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -497,52 +529,18 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onDel
         >
           <Folder
             className="w-4 h-4 shrink-0"
-            style={{ color: project.color, fill: project.color, fillOpacity: 0.18 }}
+            style={{
+              color: project.color,
+              fill: project.color,
+              fillOpacity: 0.18,
+            }}
             strokeWidth={1.5}
           />
           {!collapsed && (
             <span className="flex-1 truncate">{project.name}</span>
           )}
         </button>
-        {!collapsed && (
-          <>
-            <span className="meta-text">{count}</span>
-            <div ref={menuRef} className="relative">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuOpen((o) => !o);
-                }}
-                className="opacity-0 group-hover:opacity-100 text-ink-subtle hover:text-ink-2 p-0.5 -mr-1 rounded transition-colors"
-                aria-label="Project actions"
-              >
-                <MoreHorizontal className="w-3.5 h-3.5" strokeWidth={2} />
-              </button>
-              {menuOpen && (
-                <div
-                  role="menu"
-                  className="absolute top-full right-0 mt-1 w-[160px] border border-line-2 shadow-2xl shadow-black/50 py-1 z-30"
-                  style={{ background: 'rgba(28,28,32,0.96)', backdropFilter: 'blur(14px)', borderRadius: 8 }}
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onDelete();
-                    }}
-                    className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-[rgba(198,110,107,0.12)] hover:text-[#d68a86] flex items-center gap-2 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                    Delete project
-                  </button>
-                </div>
-              )}
-            </div>
-          </>
-        )}
+        {!collapsed && <span className="meta-text">{count}</span>}
       </div>
     </div>
   );
