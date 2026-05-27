@@ -27,10 +27,9 @@ function SortableCard({ item }: { item: Item }) {
 interface Props {
   status: Status;
   items: Item[];
-  isLast: boolean;
 }
 
-export function BoardColumn({ status, items, isLast }: Props) {
+export function BoardColumn({ status, items }: Props) {
   const cfg = STATUS_CONFIG[status];
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const openNewItem = useUi((s) => s.openNewItem);
@@ -38,15 +37,10 @@ export function BoardColumn({ status, items, isLast }: Props) {
   return (
     <section
       ref={setNodeRef}
-      className="flex-1 flex flex-col h-full relative"
-      style={{
-        minWidth: 280,
-        padding: '0 12px',
-        // Hairline column separator (Linear-style)
-        boxShadow: isLast
-          ? undefined
-          : 'inset -1px 0 0 0 rgba(255,255,255,0.06)',
-      }}
+      // Layout (horizontal vs vertical stack) and separator side both live in
+      // .board-col + media query — see src/index.css. :not(:last-child) handles
+      // the separator-on-last suppression, no marker class needed.
+      className="board-col"
     >
       <header
         className="flex items-center gap-2.5"
@@ -97,10 +91,11 @@ export function BoardColumn({ status, items, isLast }: Props) {
       </header>
 
       <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="space-y-2 overflow-y-auto pr-0.5 flex-1 min-h-0">
+        {/* board-col-cards: own per-column scroll at lg+, sized by content below. */}
+        <div className="board-col-cards">
           {items.length === 0 ? (
             <div
-              className="text-[11px] text-center italic flex items-center justify-center h-full min-h-[160px]"
+              className="text-[11px] text-center italic flex items-center justify-center min-h-[80px] lg:h-full lg:min-h-[160px]"
               style={{ color: isOver ? 'var(--accent-2)' : 'var(--ink-4)' }}
             >
               {isOver ? 'Drop here' : 'Empty — click + or drop here'}
