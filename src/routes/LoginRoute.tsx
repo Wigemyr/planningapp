@@ -32,7 +32,7 @@ export default function LoginRoute() {
         <div className="flex items-center gap-2.5 mb-7">
           <div
             className="w-7 h-7 rounded-md flex items-center justify-center text-[12px] font-bold text-white"
-            style={{ background: '#7170ff' }}
+            style={{ background: 'var(--accent)' }}
             aria-hidden
           >
             P

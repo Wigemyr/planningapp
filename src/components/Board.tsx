@@ -4,9 +4,11 @@ import {
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
@@ -16,22 +18,34 @@ import type { Item, Status } from '@/lib/types';
 import { STATUSES } from '@/lib/types';
 import { BoardColumn } from './BoardColumn';
 import { ItemCard } from './ItemCard';
+import { useFilteredItems } from '@/store/useFilters';
+
+/** Prefer column droppables when the pointer is in an empty area below the cards. */
+const columnFriendlyDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    const cardHit = pointerCollisions.find(
+      (c) => !(STATUSES as readonly string[]).includes(String(c.id)),
+    );
+    if (cardHit) return [cardHit];
+    return pointerCollisions;
+  }
+  return rectIntersection(args);
+};
 
 export function Board() {
   const items = useStore((s) => s.items);
   const currentProjectId = useStore((s) => s.currentProjectId);
   const moveItem = useStore((s) => s.moveItem);
+  const filtered = useFilteredItems(items);
 
   const byStatus = useMemo(
-    () => selectItemsByStatus(items, currentProjectId),
-    [items, currentProjectId],
+    () => selectItemsByStatus(filtered, currentProjectId),
+    [filtered, currentProjectId],
   );
 
   const [activeItem, setActiveItem] = useState<Item | null>(null);
 
-  // Require a small drag distance before starting the drag — prevents accidental
-  // drags when the user just wants to click into the card. 4px is the sweet spot:
-  // big enough to filter pointer jitter, small enough to feel responsive.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -59,7 +73,6 @@ export function Board() {
     let targetIndex = 0;
 
     if ((STATUSES as readonly string[]).includes(overId)) {
-      // Dropped on a column directly (possibly empty) — append to end.
       targetStatus = overId as Status;
       targetIndex = byStatus[targetStatus].filter((i) => i.id !== activeId).length;
     } else {
@@ -71,21 +84,26 @@ export function Board() {
       targetIndex = idx >= 0 ? idx : col.length;
     }
 
-    moveItem(activeId, targetStatus, targetIndex);
+    void moveItem(activeId, targetStatus, targetIndex);
   }
 
   return (
     <div className="flex-1 overflow-x-auto overflow-y-hidden">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={columnFriendlyDetection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveItem(null)}
       >
-        <div className="flex gap-3 p-3 h-full" style={{ minWidth: 'max-content' }}>
-          {STATUSES.map((s) => (
-            <BoardColumn key={s} status={s} items={byStatus[s]} />
+        <div className="flex h-full px-4 pt-3" style={{ minWidth: 'max-content' }}>
+          {STATUSES.map((s, idx) => (
+            <BoardColumn
+              key={s}
+              status={s}
+              items={byStatus[s]}
+              isLast={idx === STATUSES.length - 1}
+            />
           ))}
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
