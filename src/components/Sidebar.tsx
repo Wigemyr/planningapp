@@ -501,13 +501,29 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onCon
       className="relative group"
       onContextMenu={onContextMenu}
     >
+      {/* Whole row is the click target. The drag handle is excluded via
+       * data-drag-handle so grabbing the grip doesn't also fire onSelect. */}
       <div
+        role="button"
+        tabIndex={0}
         className={`sidebar-link w-full ${active ? 'active' : ''}`}
         style={collapsed ? { justifyContent: 'center', gap: 0, padding: '8px 0' } : undefined}
+        title={project.name}
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('[data-drag-handle]')) return;
+          onSelect();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect();
+          }
+        }}
       >
         {!collapsed && (
           <button
             type="button"
+            data-drag-handle
             {...attributes}
             {...listeners}
             className="opacity-0 group-hover:opacity-60 hover:!opacity-100 -ml-1.5 -mr-0.5 cursor-move text-ink-subtle"
@@ -517,29 +533,18 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onCon
             <GripVertical className="w-3 h-3" strokeWidth={2} />
           </button>
         )}
-        <button
-          type="button"
-          onClick={onSelect}
-          className={
-            collapsed
-              ? 'flex items-center justify-center w-full'
-              : 'flex items-center gap-2.5 flex-1 min-w-0 text-left'
-          }
-          title={project.name}
-        >
-          <Folder
-            className="w-4 h-4 shrink-0"
-            style={{
-              color: project.color,
-              fill: project.color,
-              fillOpacity: 0.18,
-            }}
-            strokeWidth={1.5}
-          />
-          {!collapsed && (
-            <span className="flex-1 truncate">{project.name}</span>
-          )}
-        </button>
+        <Folder
+          className="w-4 h-4 shrink-0"
+          style={{
+            color: project.color,
+            fill: project.color,
+            fillOpacity: 0.18,
+          }}
+          strokeWidth={1.5}
+        />
+        {!collapsed && (
+          <span className="flex-1 truncate text-left">{project.name}</span>
+        )}
         {!collapsed && <span className="meta-text">{count}</span>}
       </div>
     </div>
