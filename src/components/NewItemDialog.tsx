@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { useNavigate } from 'react-router-dom';
-import { ITEM_TYPES, STATUSES, type ItemType, type Status } from '@/lib/types';
-import { STATUS_CONFIG, TYPE_CONFIG } from '@/lib/constants';
+import { ITEM_TYPES, STATUSES, type ItemType, type Priority, type Status } from '@/lib/types';
+import { STATUS_CONFIG, TYPE_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL } from '@/lib/constants';
 import { Select } from './Select';
 import { X, Paperclip, Check } from './icons';
 import { formatBytes } from '@/lib/format';
@@ -24,6 +24,7 @@ interface PersistedDraft {
   projectId: string;
   type: ItemType;
   status: Status;
+  priority: Priority;
   savedAt: string;
 }
 
@@ -72,6 +73,7 @@ export function NewItemDialog() {
   const [projectId, setProjectId] = useState<string>('');
   const [type, setType] = useState<ItemType>('task');
   const [status, setStatus] = useState<Status>('backlog');
+  const [priority, setPriority] = useState<Priority>(null);
   const [pastedBlobs, setPastedBlobs] = useState<PastedBlob[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [restoredFromDraft, setRestoredFromDraft] = useState(false);
@@ -92,6 +94,7 @@ export function NewItemDialog() {
         setProjectId(draft.projectId || currentProjectId || projects[0]?.id || '');
         setType(draft.type);
         setStatus((defaults?.status as Status) ?? draft.status);
+        setPriority(draft.priority ?? null);
         setRestoredFromDraft(true);
       } else {
         setTitle('');
@@ -99,6 +102,7 @@ export function NewItemDialog() {
         setProjectId(currentProjectId || projects[0]?.id || '');
         setType('task');
         setStatus((defaults?.status as Status) ?? 'backlog');
+        setPriority(null);
         setRestoredFromDraft(false);
       }
       setPastedBlobs([]);
@@ -194,6 +198,7 @@ export function NewItemDialog() {
       projectId,
       type,
       status,
+      priority,
       savedAt: new Date().toISOString(),
     });
     setClosePromptOpen(false);
@@ -213,6 +218,7 @@ export function NewItemDialog() {
     setProjectId(currentProjectId || projects[0]?.id || '');
     setType('task');
     setStatus((defaults?.status as Status) ?? 'backlog');
+    setPriority(null);
     setRestoredFromDraft(false);
     setTimeout(() => titleRef.current?.focus(), 10);
   }
@@ -227,6 +233,7 @@ export function NewItemDialog() {
         projectId,
         type,
         status,
+        priority,
       });
       if (pastedBlobs.length > 0) {
         await addAttachmentsFromBlobs(
@@ -263,6 +270,15 @@ export function NewItemDialog() {
     label: p.name,
     dot: p.color,
   }));
+  /** Priority is optional — '' means "no priority". The Select component takes
+   * string values, so we round-trip null <-> '' when reading/writing. */
+  const priorityOptions = [
+    { value: '', label: 'No priority', dot: 'var(--ink-4)' },
+    { value: 'p0', label: PRIORITY_LABEL.p0 + ' — critical', dot: PRIORITY_COLOR.p0.color, color: PRIORITY_COLOR.p0.color },
+    { value: 'p1', label: PRIORITY_LABEL.p1 + ' — high',     dot: PRIORITY_COLOR.p1.color, color: PRIORITY_COLOR.p1.color },
+    { value: 'p2', label: PRIORITY_LABEL.p2 + ' — medium',   dot: PRIORITY_COLOR.p2.color, color: PRIORITY_COLOR.p2.color },
+    { value: 'p3', label: PRIORITY_LABEL.p3 + ' — low',      dot: PRIORITY_COLOR.p3.color, color: PRIORITY_COLOR.p3.color },
+  ];
 
   return (
     <div
@@ -413,6 +429,13 @@ export function NewItemDialog() {
               onChange={(v) => setStatus(v as Status)}
               options={statusOptions}
               ariaLabel="Status"
+            />
+            <Select
+              value={priority ?? ''}
+              onChange={(v) => setPriority((v || null) as Priority)}
+              options={priorityOptions}
+              ariaLabel="Priority"
+              placeholder="Priority"
             />
             <Select
               value={projectId}
