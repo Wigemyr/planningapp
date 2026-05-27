@@ -300,7 +300,7 @@ export function NewItemDialog() {
           <div
             className="flex items-center justify-between px-5 py-2 text-[11.5px]"
             style={{
-              background: 'rgba(91,141,239,0.08)',
+              background: 'rgba(255,255,255,0.025)',
               borderBottom: '1px solid var(--line-1)',
               color: 'var(--ink-2)',
             }}
@@ -437,16 +437,7 @@ export function NewItemDialog() {
               onClick={handleSaveAsDraft}
               disabled={!dirty}
               title="Save your typing and reopen the dialog later with it restored"
-              className="text-[12.5px] px-3 py-1.5 rounded-md text-ink-2 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{ borderColor: 'var(--line-2)' }}
-              onMouseEnter={(e) => {
-                if (!e.currentTarget.disabled) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-              }}
+              className="text-[12.5px] px-3 py-1.5 rounded-md text-ink-2 hover:bg-white/[0.05] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save as draft
             </button>
@@ -528,14 +519,7 @@ export function NewItemDialog() {
                 <button
                   type="button"
                   onClick={handleSaveAsDraft}
-                  className="text-[12px] px-3 py-1.5 rounded-md text-ink-2 border transition-colors"
-                  style={{ borderColor: 'var(--line-2)' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                  }}
+                  className="text-[12px] px-3 py-1.5 rounded-md text-ink-2 hover:bg-white/[0.05] transition-colors"
                 >
                   Save as draft
                 </button>
@@ -543,7 +527,22 @@ export function NewItemDialog() {
                   type="button"
                   onClick={() => void submit(false)}
                   disabled={!title.trim() || !projectId || submitting}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-white bg-accent hover:bg-accent-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    background: 'var(--surface-4)',
+                    border: '1px solid var(--line-2)',
+                    color: 'var(--ink-1)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!e.currentTarget.disabled) {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                      e.currentTarget.style.borderColor = 'var(--line-3)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'var(--surface-4)';
+                    e.currentTarget.style.borderColor = 'var(--line-2)';
+                  }}
                 >
                   <Check className="w-3.5 h-3.5" strokeWidth={2.25} />
                   {submitting ? 'Creating…' : 'Create'}
