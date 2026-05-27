@@ -597,8 +597,13 @@ export default function ItemRoute() {
           </div>
         </div>
 
-        {/* right rail: properties */}
-        <aside className="w-[280px] shrink-0 border-l border-line overflow-y-auto bg-[#0c0f14]">
+        {/* right rail: properties. Uses var(--bg) to match the left sidebar
+         * pattern — both side panels read as "chrome" around the canvas. The
+         * border-l separates it visually. */}
+        <aside
+          className="w-[280px] shrink-0 border-l border-line overflow-y-auto"
+          style={{ background: 'var(--bg)' }}
+        >
           <div className="p-4">
             <div className="text-[10px] uppercase tracking-[0.16em] font-semibold mb-3 text-ink-subtle">
               Properties
@@ -793,8 +798,12 @@ export default function ItemRoute() {
               </p>
             </div>
             <div
-              className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line bg-[#13161c]"
-              style={{ borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}
+              className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line"
+              style={{
+                background: 'rgba(0,0,0,0.18)',
+                borderBottomLeftRadius: 10,
+                borderBottomRightRadius: 10,
+              }}
             >
               <button
                 type="button"
