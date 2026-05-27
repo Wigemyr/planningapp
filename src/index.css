@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    font-family: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: #0a0b0d;
+    color: #e8e9ed;
+    letter-spacing: -0.005em;
+    font-feature-settings: 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  /* Allow focus rings everywhere — accessibility */
+  *:focus-visible {
+    outline: 2px solid #7170ff;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* Scrollbar styling for dark theme */
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: #1e2128;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: #2a2e36;
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+}
+
+@layer components {
+  .kbd {
+    @apply text-[10.5px] px-[5px] py-[1px] rounded border border-line-2 text-ink-muted bg-black/25 leading-[1.4] inline-block;
+  }
+  .pill {
+    @apply text-[11px] leading-[1.4] px-[7px] py-[1px] rounded font-medium inline-flex items-center;
+  }
+  .dot {
+    @apply w-2 h-2 rounded-full inline-block shrink-0;
+  }
+  .avatar {
+    @apply w-[22px] h-[22px] rounded-full inline-flex items-center justify-center text-[10px] font-semibold text-white shrink-0;
+  }
+  .meta-text {
+    @apply text-[11px] text-ink-muted tabular-nums;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-[9px] px-[9px] py-[5px] rounded-md text-[12.5px] text-ink-2 transition-colors;
+  }
+  .sidebar-link:hover { @apply bg-white/[0.035] text-ink; }
+  .sidebar-link.active { @apply bg-accent/10 text-ink; }
+  .type-bug-pill {
+    @apply inline-flex items-center gap-[3px] text-[11px] font-semibold px-[6px] py-px rounded border;
+    background: rgba(239,68,68,0.12);
+    color: #ef4444;
+    border-color: rgba(239,68,68,0.22);
+    letter-spacing: 0.01em;
+    padding-left: 5px;
+  }
+  .type-bug-pill svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  /* Uniform right-rail property control (selects + read-only chips). */
+  .prop-control {
+    @apply w-full flex items-center text-[12.5px] rounded-md border;
+    height: 30px;
+    padding: 0 10px;
+    line-height: 1;
+  }
+  .prop-control:hover { filter: brightness(1.08); }
+  .prop-control:focus-within {
+    outline: 2px solid rgba(113,112,255,0.4);
+    outline-offset: 1px;
+  }
+  .prop-static {
+    @apply text-[12.5px] text-ink-2 px-2 py-1.5 inline-flex items-center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
