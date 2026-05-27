@@ -425,14 +425,17 @@ export default function ItemRoute() {
               placeholder="Title"
             />
 
-            {/* description */}
+            {/* description — fixed 6-row baseline, user can drag-resize taller
+             * via the corner grip. Used to auto-grow with content which made
+             * long descriptions overwhelm the rest of the panel. */}
             <textarea
               value={draft.description}
               onChange={(e) => setField('description', e.target.value)}
               placeholder="Add a description… Paste images anywhere on this page with Ctrl+V — they'll attach below."
-              className="w-full bg-transparent text-[13.5px] leading-[1.65] text-ink-2 placeholder:text-ink-subtle resize-none focus:outline-none min-h-[120px]"
-              rows={Math.max(4, draft.description.split('\n').length + 1)}
+              className="w-full bg-transparent text-[13.5px] leading-[1.65] text-ink-2 placeholder:text-ink-subtle resize-y focus:outline-none rounded-md"
+              rows={6}
               aria-label="Description"
+              style={{ minHeight: 140 }}
             />
 
             {/* attachments (instant-save) */}
