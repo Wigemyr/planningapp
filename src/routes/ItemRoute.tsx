@@ -15,6 +15,7 @@ import { Avatar } from '@/components/Avatar';
 import { ImageLightbox } from '@/components/ImageLightbox';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { CommentSection } from '@/components/CommentSection';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useUi } from '@/store/useUi';
 import { formatAbsolute, formatRelative, formatBytes } from '@/lib/format';
 import {
@@ -361,6 +362,7 @@ export default function ItemRoute() {
               <Link2 className="w-3.5 h-3.5" strokeWidth={1.75} />
               Copy link
             </button>
+            <NotificationBell />
           </>
         )}
       </header>
