@@ -82,8 +82,6 @@ const dbToItem = (r: DbItem, atts: DbAttachment[]): Item => ({
   position: r.position,
 });
 
-/* ---------- Store ---------- */
-
 interface NewItemInput {
   title: string;
   description?: string;
@@ -108,19 +106,16 @@ export interface PendingInvite {
 }
 
 interface StoreState {
-  // identity
   currentUserId: string | null;
   currentUserEmail: string | null;
   users: User[];
 
-  // domain
   workspaces: Workspace[];
   projects: Project[];
   items: Item[];
   members: WorkspaceMember[];
   invites: PendingInvite[];
 
-  // ui
   currentWorkspaceId: string | null;
   currentProjectId: string | null;
   needsInvite: boolean;
@@ -140,6 +135,7 @@ interface StoreState {
   refreshMembersAndInvites: () => Promise<void>;
 
   createWorkspace: (name: string) => Promise<Workspace>;
+  deleteWorkspace: (id: string) => Promise<void>;
 
   createProject: (input: { name: string; color: string; shortPrefix: string }) => Promise<Project>;
   deleteProject: (id: string) => Promise<void>;
@@ -340,7 +336,6 @@ export const useStore = create<StoreState>((set, get) => ({
       .insert({ workspace_id: newWs.id, user_id: userId, role: 'owner' });
     if (memErr) throw memErr;
 
-    // Seed default projects so the new workspace isn't empty
     try {
       await supabase.rpc('seed_default_projects', { p_workspace_id: newWs.id });
     } catch (err) {
@@ -349,9 +344,38 @@ export const useStore = create<StoreState>((set, get) => ({
 
     const ws = dbToWorkspace(newWs as DbWorkspace);
     set((s) => ({ workspaces: [...s.workspaces, ws] }));
-    // Switch into the new workspace — re-bootstrap loads its data + realtime.
     await get().setCurrentWorkspace(ws.id);
     return ws;
+  },
+
+  deleteWorkspace: async (id) => {
+    const state = get();
+    const target = state.workspaces.find((w) => w.id === id);
+    if (!target) return;
+
+    const { error } = await supabase.from('workspaces').delete().eq('id', id);
+    if (error) throw error;
+
+    // Optimistic local update
+    const remaining = state.workspaces.filter((w) => w.id !== id);
+    set({ workspaces: remaining });
+
+    // If we just nuked the current workspace, jump into another one (or clear
+    // state entirely if it was the last). setCurrentWorkspace re-bootstraps,
+    // which also rebinds realtime.
+    if (state.currentWorkspaceId === id) {
+      if (remaining.length > 0) {
+        await get().setCurrentWorkspace(remaining[0].id);
+      } else {
+        try {
+          localStorage.removeItem(CURRENT_WS_KEY);
+        } catch {
+          // ignore
+        }
+        await get().teardown();
+        await get().bootstrap();
+      }
+    }
   },
 
   createProject: async (input) => {
