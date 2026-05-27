@@ -44,6 +44,7 @@ export function Sidebar() {
   const setCurrentProject = useStore((s) => s.setCurrentProject);
   const setCurrentWorkspace = useStore((s) => s.setCurrentWorkspace);
   const createWorkspace = useStore((s) => s.createWorkspace);
+  const deleteWorkspace = useStore((s) => s.deleteWorkspace);
   const items = useStore((s) => s.items);
   const currentUser = useStore((s) => s.currentUser());
   const signOut = useStore((s) => s.signOut);
@@ -54,6 +55,8 @@ export function Sidebar() {
   const toggleSidebar = useUi((s) => s.toggleSidebar);
   const reorderProjects = useStore((s) => s.reorderProjects);
   const deleteProject = useStore((s) => s.deleteProject);
+  const openConfirm = useUi((s) => s.openConfirm);
+  const openContextMenu = useUi((s) => s.openContextMenu);
   const navigate = useNavigate();
 
   const isOwner =
@@ -98,6 +101,47 @@ export function Sidebar() {
     }
   }
 
+  function handleDeleteProject(p: Project) {
+    openConfirm({
+      title: `Delete "${p.name}"?`,
+      description:
+        'This will permanently delete the project and all of its items, comments, and attachments. This action cannot be undone.',
+      confirmLabel: 'Delete project',
+      danger: true,
+      onConfirm: () => deleteProject(p.id),
+    });
+  }
+
+  function handleDeleteCurrentWorkspace() {
+    setWorkspaceMenuOpen(false);
+    if (!workspace) return;
+    openConfirm({
+      title: `Delete workspace "${workspace.name}"?`,
+      description: (
+        <>
+          This permanently deletes the workspace along with{' '}
+          <strong className="text-ink">all of its projects, items, attachments, and member access</strong>.
+          {' '}Everyone in this workspace will lose access immediately. This action cannot be undone.
+        </>
+      ),
+      confirmLabel: 'Delete workspace',
+      danger: true,
+      onConfirm: () => deleteWorkspace(workspace.id),
+    });
+  }
+
+  function openProjectContextMenu(e: React.MouseEvent, p: Project) {
+    e.preventDefault();
+    openContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Delete project',
+        icon: <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />,
+        danger: true,
+        onClick: () => handleDeleteProject(p),
+      },
+    ]);
+  }
+
   const workspace = workspaces.find((w) => w.id === currentWorkspaceId);
 
   const projectCounts = useMemo(() => {
@@ -140,7 +184,6 @@ export function Sidebar() {
         transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      {/* Top: workspace switcher with dropdown of all workspaces + Create new */}
       <div className="p-2 relative" ref={workspaceMenuRef}>
         <button
           type="button"
@@ -215,6 +258,17 @@ export function Sidebar() {
               <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
               Create workspace
             </button>
+            {isOwner && workspace && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleDeleteCurrentWorkspace}
+                className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-[rgba(198,110,107,0.12)] hover:text-[#d68a86] flex items-center gap-2 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+                Delete current workspace
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -271,11 +325,8 @@ export function Sidebar() {
                 count={projectCounts.get(p.id) ?? 0}
                 collapsed={collapsed}
                 onSelect={() => setCurrentProject(p.id)}
-                onDelete={() => {
-                  if (window.confirm(`Delete project "${p.name}"? All its items will be deleted too.`)) {
-                    void deleteProject(p.id);
-                  }
-                }}
+                onDelete={() => handleDeleteProject(p)}
+                onContextMenu={(e) => openProjectContextMenu(e, p)}
               />
             ))}
           </SortableContext>
@@ -385,9 +436,10 @@ interface RowProps {
   collapsed: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }
 
-function SortableProjectRow({ project, active, count, collapsed, onSelect, onDelete }: RowProps) {
+function SortableProjectRow({ project, active, count, collapsed, onSelect, onDelete, onContextMenu }: RowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: project.id });
 
@@ -415,6 +467,7 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onDel
       ref={setNodeRef}
       style={style}
       className="relative group"
+      onContextMenu={onContextMenu}
     >
       <div
         className={`sidebar-link w-full ${active ? 'active' : ''}`}

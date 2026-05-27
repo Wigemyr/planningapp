@@ -2,8 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import type { Item, ItemType } from '@/lib/types';
 import { STATUS_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL } from '@/lib/constants';
 import { useStore } from '@/store/useStore';
+import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
-import { Bug, Paperclip, Clock } from './icons';
+import { Bug, Paperclip, Clock, Trash2 } from './icons';
 
 /** Restrained, single-tone palette per item type (Slate Paper). Only Bug pops. */
 const TYPE_PILL: Record<ItemType, { label: string; bg: string; color: string; border?: string }> = {
@@ -23,6 +24,9 @@ export function ItemCard({ item, dragging = false }: Props) {
   const users = useStore((s) => s.users);
   const projects = useStore((s) => s.projects);
   const currentProjectId = useStore((s) => s.currentProjectId);
+  const deleteItem = useStore((s) => s.deleteItem);
+  const openConfirm = useUi((s) => s.openConfirm);
+  const openContextMenu = useUi((s) => s.openContextMenu);
 
   const assignee = users.find((u) => u.id === item.assigneeId);
   const project = projects.find((p) => p.id === item.projectId);
@@ -32,13 +36,43 @@ export function ItemCard({ item, dragging = false }: Props) {
   const isBug = item.type === 'bug';
   const isResolved = item.status === 'resolved';
 
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    openContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Open details',
+        onClick: () => navigate(`/items/${item.id}`),
+      },
+      {
+        label: 'Delete item',
+        icon: <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />,
+        danger: true,
+        onClick: () => {
+          openConfirm({
+            title: `Delete ${item.shortId}?`,
+            description: (
+              <>
+                This will permanently delete{' '}
+                <strong className="text-ink">"{item.title || 'Untitled'}"</strong> and any
+                attachments on it. This cannot be undone.
+              </>
+            ),
+            confirmLabel: 'Delete item',
+            danger: true,
+            onConfirm: () => deleteItem(item.id),
+          });
+        },
+      },
+    ]);
+  }
+
   return (
     <article
       onClick={(e) => {
-        // ignore if a drag just happened (handled by listeners)
         e.stopPropagation();
         navigate(`/items/${item.id}`);
       }}
+      onContextMenu={handleContextMenu}
       className={`group cursor-pointer rounded-md border border-line bg-panel p-3 pb-2.5 transition-colors hover:bg-panel-2 hover:border-line-2 focus-within:bg-panel-2 ${
         dragging ? 'ring-1 ring-accent/40' : ''
       }`}
@@ -102,7 +136,6 @@ export function ItemCard({ item, dragging = false }: Props) {
 
       <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-line">
         <Avatar user={assignee} size={20} faded={isResolved} />
-        {/* Project chip — only shown in "All projects" view */}
         {currentProjectId === null && project && (
           <span className="text-[11px] text-ink-subtle truncate max-w-[120px]" title={project.name}>
             <span className="dot mr-1 align-middle" style={{ background: project.color, width: 6, height: 6 }} />
@@ -135,7 +168,6 @@ function waitingDays(iso: string) {
 }
 
 function labelStyle(label: string): React.CSSProperties {
-  // small palette by label name — keeps colors stable across renders
   const palette: Record<string, { bg: string; color: string }> = {
     billing:   { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' },
     api:       { bg: 'rgba(16,185,129,0.12)', color: '#10b981' },
