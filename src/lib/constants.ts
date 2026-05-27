@@ -60,34 +60,37 @@ export interface TypeConfig {
   border: string;
 }
 
+/** Warm-neutral type palette shared by the board card pills, the detail-page
+ * Type chip, and the new-item type picker. Kept aligned with TYPE_PILL in
+ * ItemCard.tsx so the colour you see on a card matches the chip on its detail. */
 export const TYPE_CONFIG: Record<ItemType, TypeConfig> = {
   bug: {
     id: 'bug',
     label: 'Bug',
-    color: '#ef4444',
-    bg: 'rgba(239,68,68,0.12)',
-    border: 'rgba(239,68,68,0.22)',
+    color: '#c66e6b',
+    bg: 'rgba(198,110,107,0.12)',
+    border: 'rgba(198,110,107,0.24)',
   },
   feature: {
     id: 'feature',
     label: 'Feature',
-    color: '#7170ff',
-    bg: 'rgba(113,112,255,0.12)',
-    border: 'rgba(113,112,255,0.22)',
+    color: '#6aa57d',
+    bg: 'rgba(106,165,125,0.12)',
+    border: 'rgba(106,165,125,0.24)',
   },
   task: {
     id: 'task',
     label: 'Task',
-    color: '#8a8f99',
-    bg: 'rgba(138,143,153,0.10)',
-    border: 'rgba(138,143,153,0.20)',
+    color: '#bda88a',
+    bg: 'rgba(168,150,125,0.12)',
+    border: 'rgba(168,150,125,0.24)',
   },
   idea: {
     id: 'idea',
     label: 'Idea',
-    color: '#f59e0b',
-    bg: 'rgba(245,158,11,0.12)',
-    border: 'rgba(245,158,11,0.22)',
+    color: '#c79348',
+    bg: 'rgba(199,147,72,0.12)',
+    border: 'rgba(199,147,72,0.24)',
   },
 };
 
