@@ -57,6 +57,11 @@ interface UiState {
   contextMenu: ContextMenuState | null;
   openContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
   closeContextMenu: () => void;
+
+  /** When non-null, ProjectAppearanceDialog renders for this project id. */
+  appearanceProjectId: string | null;
+  openProjectAppearance: (projectId: string) => void;
+  closeProjectAppearance: () => void;
 }
 
 function initialSidebar(): boolean {
@@ -121,4 +126,8 @@ export const useUi = create<UiState>((set) => ({
   contextMenu: null,
   openContextMenu: (x, y, items) => set({ contextMenu: { x, y, items } }),
   closeContextMenu: () => set({ contextMenu: null }),
+
+  appearanceProjectId: null,
+  openProjectAppearance: (projectId) => set({ appearanceProjectId: projectId }),
+  closeProjectAppearance: () => set({ appearanceProjectId: null }),
 }));
