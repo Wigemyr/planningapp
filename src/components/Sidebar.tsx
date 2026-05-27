@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
@@ -21,7 +22,13 @@ export function Sidebar() {
   const items = useStore((s) => s.items);
   const currentUser = useStore((s) => s.currentUser());
   const signOut = useStore((s) => s.signOut);
+  const members = useStore((s) => s.members);
+  const currentUserId = useStore((s) => s.currentUserId);
   const openNewItem = useUi((s) => s.openNewItem);
+  const navigate = useNavigate();
+
+  const isOwner =
+    members.find((m) => m.user.id === currentUserId)?.role === 'owner';
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -146,6 +153,20 @@ export function Sidebar() {
               Signed in as
               <div className="text-ink-2 text-[12px] truncate">{currentUser?.email}</div>
             </div>
+            {isOwner && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate('/settings');
+                }}
+                className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-white/[0.04] hover:text-ink flex items-center gap-2 transition-colors"
+              >
+                <User className="w-3.5 h-3.5" strokeWidth={1.75} />
+                Members & invites
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

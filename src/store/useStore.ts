@@ -83,19 +83,37 @@ interface NewItemInput {
   labels?: string[];
 }
 
+export interface WorkspaceMember {
+  workspaceId: string;
+  user: User;
+  role: 'owner' | 'member';
+}
+export interface PendingInvite {
+  id: string;
+  workspaceId: string;
+  email: string;
+  invitedBy: string | null;
+  createdAt: string;
+}
+
 interface StoreState {
   // identity
   currentUserId: string | null;
+  currentUserEmail: string | null;
   users: User[];
 
   // domain
   workspaces: Workspace[];
   projects: Project[];
   items: Item[];
+  members: WorkspaceMember[];
+  invites: PendingInvite[];
 
   // ui
   currentWorkspaceId: string | null;
   currentProjectId: string | null;
+  /** True when the signed-in user has no workspace and no pending invite. */
+  needsInvite: boolean;
 
   // status
   loading: boolean;
@@ -108,6 +126,12 @@ interface StoreState {
   bootstrap: () => Promise<void>;
   teardown: () => Promise<void>;
   signOut: () => Promise<void>;
+
+  // members & invites
+  inviteMember: (email: string) => Promise<{ kind: 'added_existing' | 'pending_invite' }>;
+  revokeInvite: (inviteId: string) => Promise<void>;
+  removeMember: (userId: string) => Promise<void>;
+  refreshMembersAndInvites: () => Promise<void>;
 
   // CRUD (async, optimistic)
   createItem: (input: NewItemInput) => Promise<Item>;
@@ -136,18 +160,22 @@ interface StoreState {
 
 export const useStore = create<StoreState>((set, get) => ({
   currentUserId: null,
+  currentUserEmail: null,
   users: [],
   workspaces: [],
   projects: [],
   items: [],
+  members: [],
+  invites: [],
   currentWorkspaceId: null,
   currentProjectId: null,
+  needsInvite: false,
   loading: false,
   errorMsg: null,
   channel: null,
 
   bootstrap: async () => {
-    set({ loading: true, errorMsg: null });
+    set({ loading: true, errorMsg: null, needsInvite: false });
     try {
       const { data: userRes } = await supabase.auth.getUser();
       const user = userRes.user;
@@ -156,25 +184,51 @@ export const useStore = create<StoreState>((set, get) => ({
         return;
       }
 
-      // Load every profile we can see (RLS allows all authenticated)
+      // Step 1: claim any pending invites for this email (idempotent if none).
+      // Handles the case where the owner invited an already-signed-up user
+      // (the handle_new_user trigger only fires for fresh signups).
+      try {
+        await supabase.rpc('claim_invites');
+      } catch (err) {
+        console.warn('[planning] claim_invites failed (non-fatal)', err);
+      }
+
+      // Step 2: load every profile we can see
       const { data: profilesRes } = await supabase.from('profiles').select('*');
       const profiles = (profilesRes ?? []) as DbProfile[];
       const users = profiles.map(dbToUser);
 
-      // My workspace memberships
+      // Step 3: my workspace memberships
       const { data: memberRes } = await supabase
         .from('workspace_members')
         .select('workspace_id, role, workspaces(*)')
         .eq('user_id', user.id);
-
-      // Supabase typings widen join results; coerce locally.
       type MemberWithWs = { workspace_id: string; role: string; workspaces: DbWorkspace | null };
       let workspaces: DbWorkspace[] = ((memberRes ?? []) as unknown as MemberWithWs[])
         .map((m) => m.workspaces)
         .filter((w): w is DbWorkspace => !!w);
 
-      // First sign-in → create a personal workspace
+      // Step 4: if no workspace, only auto-create if this is the very first
+      // user in the whole system. Otherwise show "pending invite" screen.
       if (workspaces.length === 0) {
+        const { data: isFirst } = await supabase.rpc('is_first_user');
+        if (!isFirst) {
+          set({
+            currentUserId: user.id,
+            currentUserEmail: user.email ?? null,
+            users,
+            workspaces: [],
+            projects: [],
+            items: [],
+            members: [],
+            invites: [],
+            currentWorkspaceId: null,
+            needsInvite: true,
+            loading: false,
+          });
+          return;
+        }
+        // First user — create a personal workspace
         const emailPrefix = (user.email ?? 'me').split('@')[0];
         const wsName = `${capitalize(emailPrefix)}'s workspace`;
         const initials = emailPrefix.slice(0, 1).toUpperCase();
@@ -188,18 +242,14 @@ export const useStore = create<StoreState>((set, get) => ({
           .from('workspace_members')
           .insert({ workspace_id: newWs.id, user_id: user.id, role: 'owner' });
         if (memErr) throw memErr;
-        await supabase.rpc('seed_default_projects', {
-          p_workspace_id: newWs.id,
-        });
+        await supabase.rpc('seed_default_projects', { p_workspace_id: newWs.id });
         workspaces = [newWs as DbWorkspace];
       }
 
-      // Pick current workspace from localStorage preference, else first.
+      // Step 5: pick current workspace and load its data
       const persistedWsId = localStorage.getItem(CURRENT_WS_KEY);
-      const currentWs =
-        workspaces.find((w) => w.id === persistedWsId) ?? workspaces[0];
+      const currentWs = workspaces.find((w) => w.id === persistedWsId) ?? workspaces[0];
 
-      // Fetch projects + items + attachments for current workspace.
       const [{ data: projectsRes }, { data: itemsRes }] = await Promise.all([
         supabase.from('projects').select('*').eq('workspace_id', currentWs.id),
         supabase.from('items').select('*').eq('workspace_id', currentWs.id),
@@ -218,22 +268,29 @@ export const useStore = create<StoreState>((set, get) => ({
         arr.push(a);
         attByItem.set(a.item_id, arr);
       });
-
       const items = dbItems.map((r) => dbToItem(r, attByItem.get(r.id) ?? []));
+
+      // Step 6: load members + invites for current workspace
+      const { membersForWs, invitesForWs } = await fetchMembersAndInvites(
+        currentWs.id,
+        users,
+      );
 
       set({
         currentUserId: user.id,
+        currentUserEmail: user.email ?? null,
         users,
         workspaces: workspaces.map(dbToWorkspace),
         projects: dbProjects.map(dbToProject),
         items,
+        members: membersForWs,
+        invites: invitesForWs,
         currentWorkspaceId: currentWs.id,
+        needsInvite: false,
         loading: false,
       });
 
       localStorage.setItem(CURRENT_WS_KEY, currentWs.id);
-
-      // Start realtime
       startRealtime(currentWs.id, set, get);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
@@ -249,12 +306,16 @@ export const useStore = create<StoreState>((set, get) => ({
     }
     set({
       currentUserId: null,
+      currentUserEmail: null,
       users: [],
       workspaces: [],
       projects: [],
       items: [],
+      members: [],
+      invites: [],
       currentWorkspaceId: null,
       currentProjectId: null,
+      needsInvite: false,
       channel: null,
     });
   },
@@ -631,7 +692,104 @@ export const useStore = create<StoreState>((set, get) => ({
     const s = get();
     return s.workspaces.find((w) => w.id === s.currentWorkspaceId);
   },
+
+  inviteMember: async (email) => {
+    const wsId = get().currentWorkspaceId;
+    if (!wsId) throw new Error('No active workspace');
+    const trimmed = email.trim();
+    if (!trimmed) throw new Error('Email is required');
+    const { data, error } = await supabase.rpc('invite_member', {
+      p_workspace_id: wsId,
+      p_email: trimmed,
+    });
+    if (error) throw error;
+    await get().refreshMembersAndInvites();
+    const kind = (data as { kind?: string } | null)?.kind === 'added_existing'
+      ? ('added_existing' as const)
+      : ('pending_invite' as const);
+    return { kind };
+  },
+
+  revokeInvite: async (inviteId) => {
+    const { error } = await supabase.rpc('revoke_invite', { p_invite_id: inviteId });
+    if (error) throw error;
+    set((s) => ({ invites: s.invites.filter((i) => i.id !== inviteId) }));
+  },
+
+  removeMember: async (userId) => {
+    const wsId = get().currentWorkspaceId;
+    if (!wsId) throw new Error('No active workspace');
+    const { error } = await supabase.rpc('remove_member', {
+      p_workspace_id: wsId,
+      p_user_id: userId,
+    });
+    if (error) throw error;
+    set((s) => ({ members: s.members.filter((m) => m.user.id !== userId) }));
+  },
+
+  refreshMembersAndInvites: async () => {
+    const wsId = get().currentWorkspaceId;
+    if (!wsId) return;
+    const users = get().users;
+    const { membersForWs, invitesForWs } = await fetchMembersAndInvites(wsId, users);
+    set({ members: membersForWs, invites: invitesForWs });
+  },
 }));
+
+async function fetchMembersAndInvites(
+  workspaceId: string,
+  knownUsers: User[],
+): Promise<{ membersForWs: WorkspaceMember[]; invitesForWs: PendingInvite[] }> {
+  const userMap = new Map(knownUsers.map((u) => [u.id, u]));
+  // Members + their profiles (in case we don't already have them in users)
+  const [{ data: membersRes }, { data: profilesRes }, { data: invitesRes }] =
+    await Promise.all([
+      supabase
+        .from('workspace_members')
+        .select('workspace_id, user_id, role')
+        .eq('workspace_id', workspaceId),
+      supabase.from('profiles').select('*'),
+      supabase
+        .from('workspace_invites')
+        .select('*')
+        .eq('workspace_id', workspaceId)
+        .is('consumed_at', null),
+    ]);
+  (profilesRes ?? []).forEach((p: DbProfile) => userMap.set(p.id, dbToUser(p)));
+
+  const membersForWs: WorkspaceMember[] = ((membersRes ?? []) as Array<{
+    workspace_id: string;
+    user_id: string;
+    role: 'owner' | 'member';
+  }>).map((m) => ({
+    workspaceId: m.workspace_id,
+    role: m.role,
+    user:
+      userMap.get(m.user_id) ?? {
+        id: m.user_id,
+        name: '(unknown user)',
+        initials: '?',
+        email: '',
+        color: '#6b6f78',
+      },
+  }));
+
+  const invitesForWs: PendingInvite[] = ((invitesRes ?? []) as Array<{
+    id: string;
+    workspace_id: string;
+    email: string;
+    invited_by: string | null;
+    created_at: string;
+  }>).map((r) => ({
+    id: r.id,
+    workspaceId: r.workspace_id,
+    email: r.email,
+    invitedBy: r.invited_by,
+    createdAt: r.created_at,
+  }));
+
+  return { membersForWs, invitesForWs };
+}
 
 /* ---------- Sorting selector (used by Board) ---------- */
 
