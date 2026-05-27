@@ -73,7 +73,6 @@ export function Board() {
     let targetIndex = 0;
 
     if ((STATUSES as readonly string[]).includes(overId)) {
-      // Dropped on a column directly (possibly empty) — append to end.
       targetStatus = overId as Status;
       targetIndex = byStatus[targetStatus].filter((i) => i.id !== activeId).length;
     } else {
@@ -89,7 +88,7 @@ export function Board() {
   }
 
   return (
-    <div className="flex-1 overflow-x-auto overflow-y-hidden">
+    <div className="board-outer">
       <DndContext
         sensors={sensors}
         collisionDetection={columnFriendlyDetection}
@@ -97,14 +96,9 @@ export function Board() {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveItem(null)}
       >
-        <div className="flex h-full px-4 pt-3 gap-0 min-w-full">
-          {STATUSES.map((s, idx) => (
-            <BoardColumn
-              key={s}
-              status={s}
-              items={byStatus[s]}
-              isLast={idx === STATUSES.length - 1}
-            />
+        <div className="board-cols">
+          {STATUSES.map((s) => (
+            <BoardColumn key={s} status={s} items={byStatus[s]} />
           ))}
         </div>
         <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
