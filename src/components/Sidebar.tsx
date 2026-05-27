@@ -87,6 +87,7 @@ export function Sidebar() {
     [projects],
   );
 
+  // ---- DnD for projects reorder ----
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -113,15 +114,29 @@ export function Sidebar() {
         transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
+      {/* Top: workspace switcher */}
       <div className="p-2">
         <button
           type="button"
           className="surface-button"
           title={workspace?.name ?? ''}
           aria-haspopup="listbox"
+          // Center the initials badge when collapsed so it doesn't sit flush-left.
+          style={collapsed ? { justifyContent: 'center', padding: 0 } : undefined}
         >
           {collapsed ? (
-            <Layers className="w-4 h-4 mx-auto" strokeWidth={1.75} />
+            <div
+              className="flex items-center justify-center text-[10px] font-semibold text-white"
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 5,
+                background: '#4b5a73',
+                letterSpacing: 0,
+              }}
+            >
+              {workspace?.initials ?? '?'}
+            </div>
           ) : (
             <>
               <span className="flex-1 text-left truncate">{workspace?.name}</span>
@@ -131,6 +146,7 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* Section heading */}
       {!collapsed && (
         <div className="px-4 mt-1.5 mb-1.5 flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
@@ -147,6 +163,7 @@ export function Sidebar() {
         </div>
       )}
 
+      {/* Project list */}
       <div className="px-2 flex-1 overflow-y-auto space-y-0.5">
         <button
           type="button"
@@ -205,6 +222,7 @@ export function Sidebar() {
         )}
       </div>
 
+      {/* Bottom collapse toggle */}
       <div className="px-2 pb-1">
         <button
           type="button"
@@ -223,6 +241,7 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* Account */}
       <div
         ref={accountRef}
         className="relative border-t border-line p-2 flex items-center gap-2"
@@ -289,6 +308,8 @@ export function Sidebar() {
     </aside>
   );
 }
+
+/* ---------- Sortable project row ---------- */
 
 interface RowProps {
   project: Project;
