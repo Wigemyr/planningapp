@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ITEM_TYPES, STATUSES, type ItemType, type Priority, type Status } from '@/lib/types';
 import { STATUS_CONFIG, TYPE_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL_FULL } from '@/lib/constants';
 import { Select } from './Select';
+import { RichTextEditor } from './RichTextEditor';
 import { X, Paperclip, Check } from './icons';
 import { formatBytes } from '@/lib/format';
 
@@ -373,18 +374,18 @@ export function NewItemDialog() {
             }}
             className="w-full bg-transparent text-[16px] font-medium leading-snug placeholder:text-ink-subtle focus:outline-none"
           />
-          <textarea
-            placeholder="Add a description (optional)… Ctrl+V to attach images"
+          <RichTextEditor
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={setDescription}
+            placeholder="Add a description (optional)… Ctrl+V to attach images"
+            ariaLabel="Description"
+            minBodyHeight={140}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 void submit(false);
               }
             }}
-            rows={3}
-            className="w-full bg-transparent text-[13.5px] leading-relaxed text-ink-2 placeholder:text-ink-subtle resize-none focus:outline-none"
           />
 
           {/* Pasted/staged attachments */}
