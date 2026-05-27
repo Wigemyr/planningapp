@@ -38,7 +38,7 @@ export function BoardColumn({ status, items }: Props) {
     <section
       ref={setNodeRef}
       // Layout (horizontal vs vertical stack) and separator side both live in
-      // .board-col + media query — see src/index.css. :not(:last-child) handles
+      // .board-col + mode-class — see src/index.css. :not(:last-child) handles
       // the separator-on-last suppression, no marker class needed.
       className="board-col"
     >
@@ -52,10 +52,7 @@ export function BoardColumn({ status, items }: Props) {
       >
         <span
           className="dot"
-          style={{
-            background: cfg.dot,
-            boxShadow: status === 'active' ? '0 0 0 3px rgba(91,141,239,0.18)' : undefined,
-          }}
+          style={{ background: cfg.dot }}
         />
         <span
           className="font-semibold tracking-tight"

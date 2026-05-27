@@ -19,6 +19,7 @@ import { STATUSES } from '@/lib/types';
 import { BoardColumn } from './BoardColumn';
 import { ItemCard } from './ItemCard';
 import { useFilteredItems } from '@/store/useFilters';
+import { useUi } from '@/store/useUi';
 
 /** Prefer column droppables when the pointer is in an empty area below the cards. */
 const columnFriendlyDetection: CollisionDetection = (args) => {
@@ -38,6 +39,7 @@ export function Board() {
   const currentProjectId = useStore((s) => s.currentProjectId);
   const moveItem = useStore((s) => s.moveItem);
   const filtered = useFilteredItems(items);
+  const boardLayout = useUi((s) => s.boardLayout);
 
   const byStatus = useMemo(
     () => selectItemsByStatus(filtered, currentProjectId),
@@ -88,7 +90,7 @@ export function Board() {
   }
 
   return (
-    <div className="board-outer">
+    <div className={`board-outer board-mode-${boardLayout}`}>
       <DndContext
         sensors={sensors}
         collisionDetection={columnFriendlyDetection}
