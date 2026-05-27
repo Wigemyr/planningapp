@@ -45,7 +45,9 @@ export function BoardFilters() {
   const meActive = assignees.includes('me');
 
   return (
-    <div className="border-b border-line flex items-center gap-2 px-4 py-2.5 flex-wrap">
+    <div
+      className="border-b border-line flex items-center gap-2 px-4 py-2.5 flex-wrap"
+    >
       <div className="relative">
         <Search
           className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-subtle"
@@ -198,12 +200,8 @@ function FilterChip({ active, onClick, onClear, children }: FilterChipProps) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] rounded-md border transition-colors"
-      style={{
-        background: active ? 'var(--accent-soft)' : 'transparent',
-        borderColor: active ? 'rgba(91,141,239,0.32)' : 'var(--line-1)',
-        color: active ? '#c2c5f5' : 'var(--ink-2)',
-      }}
+      data-active={active ? 'true' : undefined}
+      className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] rounded-md border"
     >
       {children}
       {onClear && (
@@ -249,12 +247,8 @@ function FilterMenu({ icon, label, activeCount, renderItems }: FilterMenuProps) 
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] rounded-md border transition-colors"
-        style={{
-          background: active ? 'var(--accent-soft)' : 'transparent',
-          borderColor: active ? 'rgba(91,141,239,0.32)' : 'var(--line-1)',
-          color: active ? '#c2c5f5' : 'var(--ink-2)',
-        }}
+        data-active={active ? 'true' : undefined}
+        className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] rounded-md border"
       >
         {icon}
         <span>{label}</span>
