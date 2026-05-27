@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { useNavigate } from 'react-router-dom';
 import { ITEM_TYPES, STATUSES, type ItemType, type Status } from '@/lib/types';
 import { STATUS_CONFIG, TYPE_CONFIG } from '@/lib/constants';
 import { Select } from './Select';
-import { Bug, X, Paperclip } from './icons';
+import { Bug, X, Paperclip, Check } from './icons';
 import { formatBytes } from '@/lib/format';
 
 interface PastedBlob {
@@ -13,6 +13,48 @@ interface PastedBlob {
   blob: Blob;
   filename: string;
   previewUrl: string;
+}
+
+/** Shape of a draft persisted to localStorage. Pasted attachments are NOT
+ * included — Blob serialisation would balloon the storage quota and we can't
+ * round-trip them reliably. */
+interface PersistedDraft {
+  title: string;
+  description: string;
+  projectId: string;
+  type: ItemType;
+  status: Status;
+  savedAt: string;
+}
+
+const DRAFT_KEY = 'planning.newItemDraft';
+
+function loadDraft(): PersistedDraft | null {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedDraft;
+    if (!parsed || typeof parsed.title !== 'string') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(d: PersistedDraft) {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+  } catch (err) {
+    console.error('[planning] failed to save draft', err);
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function NewItemDialog() {
@@ -32,32 +74,72 @@ export function NewItemDialog() {
   const [status, setStatus] = useState<Status>('backlog');
   const [pastedBlobs, setPastedBlobs] = useState<PastedBlob[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [restoredFromDraft, setRestoredFromDraft] = useState(false);
+  const [closePromptOpen, setClosePromptOpen] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
+  /** CRITICAL: only reset state on the false→true open transition. Earlier this
+   * effect listed `projects` and `currentProjectId` as deps, which meant any
+   * realtime store update mid-edit would wipe whatever the user had typed. We
+   * now gate on a prevOpen ref so reset fires exactly when the dialog opens. */
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (open) {
-      setTitle('');
-      setDescription('');
-      setProjectId(currentProjectId || projects[0]?.id || '');
-      setType('task');
-      setStatus((defaults?.status as Status) ?? 'backlog');
+    if (open && !prevOpenRef.current) {
+      const draft = loadDraft();
+      if (draft) {
+        setTitle(draft.title);
+        setDescription(draft.description);
+        setProjectId(draft.projectId || currentProjectId || projects[0]?.id || '');
+        setType(draft.type);
+        setStatus((defaults?.status as Status) ?? draft.status);
+        setRestoredFromDraft(true);
+      } else {
+        setTitle('');
+        setDescription('');
+        setProjectId(currentProjectId || projects[0]?.id || '');
+        setType('task');
+        setStatus((defaults?.status as Status) ?? 'backlog');
+        setRestoredFromDraft(false);
+      }
       setPastedBlobs([]);
       setSubmitting(false);
+      setClosePromptOpen(false);
       setTimeout(() => titleRef.current?.focus(), 10);
     }
-  }, [open, currentProjectId, projects, defaults]);
+    prevOpenRef.current = open;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
+  // Track whether the user has typed anything since opening — used to decide
+  // whether Esc / X / backdrop click should prompt or close immediately.
+  const dirty = useMemo(() => {
+    return (
+      title.trim().length > 0 ||
+      description.trim().length > 0 ||
+      pastedBlobs.length > 0
+    );
+  }, [title, description, pastedBlobs]);
+
+  // Esc → request close (which may show the prompt instead of closing)
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        close();
+        if (closePromptOpen) {
+          e.preventDefault();
+          setClosePromptOpen(false);
+          return;
+        }
+        e.preventDefault();
+        requestClose();
       }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, close]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, closePromptOpen, dirty]);
 
+  // Image paste: stage blobs locally; upload after item creation succeeds.
   useEffect(() => {
     if (!open) return;
     async function onPaste(e: ClipboardEvent) {
@@ -87,6 +169,7 @@ export function NewItemDialog() {
     return () => document.removeEventListener('paste', onPaste);
   }, [open]);
 
+  // Clean up preview URLs when blobs are removed or dialog closes
   useEffect(() => {
     return () => {
       pastedBlobs.forEach((b) => URL.revokeObjectURL(b.previewUrl));
@@ -95,6 +178,44 @@ export function NewItemDialog() {
   }, [open]);
 
   if (!open) return null;
+
+  function requestClose() {
+    if (dirty) {
+      setClosePromptOpen(true);
+    } else {
+      close();
+    }
+  }
+
+  function handleSaveAsDraft() {
+    saveDraft({
+      title,
+      description,
+      projectId,
+      type,
+      status,
+      savedAt: new Date().toISOString(),
+    });
+    setClosePromptOpen(false);
+    close();
+  }
+
+  function handleDiscardAndClose() {
+    clearDraft();
+    setClosePromptOpen(false);
+    close();
+  }
+
+  function handleDiscardDraftHint() {
+    clearDraft();
+    setTitle('');
+    setDescription('');
+    setProjectId(currentProjectId || projects[0]?.id || '');
+    setType('task');
+    setStatus((defaults?.status as Status) ?? 'backlog');
+    setRestoredFromDraft(false);
+    setTimeout(() => titleRef.current?.focus(), 10);
+  }
 
   async function submit(navigateToItem = false) {
     if (!title.trim() || !projectId || submitting) return;
@@ -114,6 +235,8 @@ export function NewItemDialog() {
         );
       }
       pastedBlobs.forEach((b) => URL.revokeObjectURL(b.previewUrl));
+      clearDraft();
+      setClosePromptOpen(false);
       close();
       if (navigateToItem) navigate(`/items/${item.id}`);
     } catch (err) {
@@ -145,14 +268,14 @@ export function NewItemDialog() {
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[12vh] px-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) close();
+        if (e.target === e.currentTarget) requestClose();
       }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-item-title"
-        className="w-full max-w-[680px] overflow-hidden shadow-2xl shadow-black/50"
+        className="w-full max-w-[680px] overflow-hidden shadow-2xl shadow-black/50 relative"
         style={{
           background: 'var(--surface-2)',
           border: '1px solid var(--line-2)',
@@ -165,13 +288,33 @@ export function NewItemDialog() {
           </h2>
           <button
             type="button"
-            onClick={close}
+            onClick={requestClose}
             className="p-1 rounded text-ink-muted hover:text-ink hover:bg-white/[0.05]"
             aria-label="Close dialog"
           >
             <X className="w-4 h-4" strokeWidth={1.75} />
           </button>
         </div>
+
+        {restoredFromDraft && (
+          <div
+            className="flex items-center justify-between px-5 py-2 text-[11.5px]"
+            style={{
+              background: 'rgba(91,141,239,0.08)',
+              borderBottom: '1px solid var(--line-1)',
+              color: 'var(--ink-2)',
+            }}
+          >
+            <span>Restored from your last unsaved draft.</span>
+            <button
+              type="button"
+              onClick={handleDiscardDraftHint}
+              className="text-ink-muted hover:text-[#d68a86] underline decoration-dotted underline-offset-2"
+            >
+              Discard draft
+            </button>
+          </div>
+        )}
 
         <div className="p-5 space-y-3">
           <input
@@ -192,10 +335,17 @@ export function NewItemDialog() {
             placeholder="Add a description (optional)… Ctrl+V to attach images"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                void submit(false);
+              }
+            }}
             rows={3}
             className="w-full bg-transparent text-[13.5px] leading-relaxed text-ink-2 placeholder:text-ink-subtle resize-none focus:outline-none"
           />
 
+          {/* Pasted/staged attachments */}
           {pastedBlobs.length > 0 && (
             <div className="pt-1">
               <div className="flex items-center gap-1.5 mb-2 text-[11px] text-ink-muted">
@@ -232,6 +382,7 @@ export function NewItemDialog() {
           )}
 
           <div className="flex items-center gap-1.5 pt-2 flex-wrap">
+            {/* Type segmented picker */}
             <div className="flex items-center rounded-md border border-line p-0.5">
               {ITEM_TYPES.map((t) => (
                 <button
@@ -267,19 +418,37 @@ export function NewItemDialog() {
         </div>
 
         <div
-          className="flex items-center justify-between px-5 py-3.5 border-t border-line"
+          className="flex items-center justify-between px-5 py-3.5 border-t border-line gap-2 flex-wrap"
           style={{ background: 'rgba(0,0,0,0.18)' }}
         >
           <span className="text-[11.5px] text-ink-subtle">
-            <span className="kbd">⌘</span> <span className="kbd">↵</span> to create
+            <span className="kbd">⌘</span> <span className="kbd">↵</span> to create · Esc to close
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={close}
+              onClick={requestClose}
               className="text-[12.5px] px-3 py-1.5 rounded-md text-ink-2 hover:bg-white/[0.05] transition-colors"
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAsDraft}
+              disabled={!dirty}
+              title="Save your typing and reopen the dialog later with it restored"
+              className="text-[12.5px] px-3 py-1.5 rounded-md text-ink-2 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ borderColor: 'var(--line-2)' }}
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.disabled) {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              Save as draft
             </button>
             <button
               type="button"
@@ -306,6 +475,83 @@ export function NewItemDialog() {
             </button>
           </div>
         </div>
+
+        {/* Esc-on-dirty prompt — overlays the dialog body so the user can pick
+         * an explicit action instead of losing typing to a stray keypress. */}
+        {closePromptOpen && (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center px-4"
+            style={{
+              background: 'rgba(8,8,12,0.72)',
+              backdropFilter: 'blur(6px)',
+            }}
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setClosePromptOpen(false);
+            }}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="close-prompt-title"
+          >
+            <div
+              className="w-full max-w-[420px] shadow-2xl shadow-black/50"
+              style={{
+                background: 'var(--surface-2)',
+                border: '1px solid var(--line-2)',
+                borderRadius: 8,
+              }}
+            >
+              <div className="p-5">
+                <h3 id="close-prompt-title" className="text-[14px] font-semibold mb-1.5">
+                  Keep this new item?
+                </h3>
+                <p className="text-[12.5px] text-ink-2 leading-relaxed">
+                  You've started a new item but haven't created it yet. Save it as a draft
+                  to come back to later, create it now, or discard your typing.
+                </p>
+              </div>
+              <div
+                className="flex items-center justify-end gap-2 px-5 py-3 flex-wrap"
+                style={{
+                  borderTop: '1px solid var(--line-1)',
+                  background: 'rgba(0,0,0,0.18)',
+                  borderBottomLeftRadius: 8,
+                  borderBottomRightRadius: 8,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleDiscardAndClose}
+                  className="text-[12px] px-3 py-1.5 rounded-md text-ink-muted hover:text-[#d68a86] hover:bg-[rgba(198,110,107,0.10)] transition-colors"
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAsDraft}
+                  className="text-[12px] px-3 py-1.5 rounded-md text-ink-2 border transition-colors"
+                  style={{ borderColor: 'var(--line-2)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  Save as draft
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void submit(false)}
+                  disabled={!title.trim() || !projectId || submitting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium text-white bg-accent hover:bg-accent-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Check className="w-3.5 h-3.5" strokeWidth={2.25} />
+                  {submitting ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -145,12 +145,12 @@ export default function ItemRoute() {
     setDraft((prev) => (prev ? { ...prev, [key]: value } : prev));
   }
 
-  // ⌘S / Ctrl+S → save · Esc → close (with dirty-check)
+  // ⌘↵ / Ctrl+Enter → save · Esc → close (with dirty-check)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       // While the close overlay is open, the overlay-specific handler below takes over.
       if (closeRequest) return;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
         if (dirty) save();
         return;
@@ -335,7 +335,7 @@ export default function ItemRoute() {
                   color: 'rgba(255,255,255,0.85)',
                 }}
               >
-                S
+                ↵
               </span>
             </button>
           </>
