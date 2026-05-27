@@ -6,12 +6,13 @@ import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
 import { Bug, Paperclip, Clock, Trash2 } from './icons';
 
-/** Restrained, single-tone palette per item type (Slate Paper). Only Bug pops. */
-const TYPE_PILL: Record<ItemType, { label: string; bg: string; color: string; border?: string }> = {
-  bug:     { label: 'Bug',     bg: 'rgba(198,110,107,0.10)', color: 'var(--sem-danger)', border: 'rgba(198,110,107,0.20)' },
-  feature: { label: 'Feature', bg: 'rgba(255,255,255,0.05)', color: 'var(--ink-2)' },
-  task:    { label: 'Task',    bg: 'rgba(255,255,255,0.05)', color: 'var(--ink-3)' },
-  idea:    { label: 'Idea',    bg: 'rgba(199,147,72,0.10)',  color: 'var(--sem-warn)' },
+/** Warm-neutral palette per item type. All four types are distinct so you can
+ * scan a board and tell types apart without reading the label. */
+const TYPE_PILL: Record<ItemType, { label: string; bg: string; color: string; border: string }> = {
+  bug:     { label: 'Bug',     bg: 'rgba(198,110,107,0.10)', color: 'var(--sem-danger)',  border: 'rgba(198,110,107,0.22)' },
+  feature: { label: 'Feature', bg: 'rgba(106,165,125,0.10)', color: 'var(--sem-success)', border: 'rgba(106,165,125,0.22)' },
+  task:    { label: 'Task',    bg: 'rgba(168,150,125,0.10)', color: '#bda88a',            border: 'rgba(168,150,125,0.22)' },
+  idea:    { label: 'Idea',    bg: 'rgba(199,147,72,0.10)',  color: 'var(--sem-warn)',    border: 'rgba(199,147,72,0.22)' },
 };
 
 interface Props {
@@ -93,7 +94,7 @@ export function ItemCard({ item, dragging = false }: Props) {
               style={{
                 background: t.bg,
                 color: t.color,
-                border: t.border ? `1px solid ${t.border}` : undefined,
+                border: `1px solid ${t.border}`,
                 opacity: item.status === 'resolved' ? 0.7 : 1,
               }}
             >

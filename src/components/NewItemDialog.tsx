@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { ITEM_TYPES, STATUSES, type ItemType, type Status } from '@/lib/types';
 import { STATUS_CONFIG, TYPE_CONFIG } from '@/lib/constants';
 import { Select } from './Select';
-import { Bug, X, Paperclip, Check } from './icons';
+import { X, Paperclip, Check } from './icons';
 import { formatBytes } from '@/lib/format';
 
 interface PastedBlob {
@@ -382,22 +382,30 @@ export function NewItemDialog() {
           )}
 
           <div className="flex items-center gap-1.5 pt-2 flex-wrap">
-            {/* Type segmented picker */}
+            {/* Type segmented picker — each type carries a coloured dot so the
+             * options are scannable without reading every label. */}
             <div className="flex items-center rounded-md border border-line p-0.5">
-              {ITEM_TYPES.map((t) => (
-                <button
-                  type="button"
-                  key={t}
-                  onClick={() => setType(t)}
-                  className={`px-2 py-1 text-[11.5px] rounded inline-flex items-center gap-1 transition-colors ${
-                    type === t ? 'bg-line-2 text-ink' : 'text-ink-muted hover:text-ink-2'
-                  }`}
-                  aria-pressed={type === t}
-                >
-                  {t === 'bug' && <Bug className="w-3 h-3" strokeWidth={2.25} style={{ color: TYPE_CONFIG.bug.color }} />}
-                  <span className="capitalize">{t}</span>
-                </button>
-              ))}
+              {ITEM_TYPES.map((t) => {
+                const cfg = TYPE_CONFIG[t];
+                const active = type === t;
+                return (
+                  <button
+                    type="button"
+                    key={t}
+                    onClick={() => setType(t)}
+                    className={`px-2 py-1 text-[11.5px] rounded inline-flex items-center gap-1.5 transition-colors ${
+                      active ? 'bg-line-2 text-ink' : 'text-ink-muted hover:text-ink-2'
+                    }`}
+                    aria-pressed={active}
+                  >
+                    <span
+                      className="dot"
+                      style={{ background: cfg.color, width: 6, height: 6 }}
+                    />
+                    <span className="capitalize">{t}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <Select
