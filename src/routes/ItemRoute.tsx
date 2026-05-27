@@ -719,10 +719,19 @@ export default function ItemRoute() {
             </div>
             <div className="space-y-1">
               <PropertyRow label="Created">
-                <span className="prop-static">{formatAbsolute(item.createdAt)}</span>
+                <ActivityStamp
+                  iso={item.createdAt}
+                  userId={item.createdBy}
+                  users={users}
+                  absolute
+                />
               </PropertyRow>
               <PropertyRow label="Updated">
-                <span className="prop-static">{formatRelative(item.updatedAt)}</span>
+                <ActivityStamp
+                  iso={item.updatedAt}
+                  userId={item.updatedBy}
+                  users={users}
+                />
               </PropertyRow>
               {item.startedAt && (
                 <PropertyRow label="Started">
@@ -865,6 +874,36 @@ export default function ItemRoute() {
 }
 
 /* ───────── small render helpers ───────── */
+
+/** A "27 May, 23:18 · wigemyr" / "4m ago · wigemyr" line for the Activity panel.
+ * Looks up the actor in the cached users list; falls back to no name if the
+ * profile is gone or the row predates the created_by/updated_by columns. */
+function ActivityStamp({
+  iso,
+  userId,
+  users,
+  absolute,
+}: {
+  iso: string;
+  userId: string | null;
+  users: { id: string; name: string }[];
+  absolute?: boolean;
+}) {
+  const actor = userId ? users.find((u) => u.id === userId) : undefined;
+  return (
+    <span className="prop-static gap-1.5">
+      <span>{absolute ? formatAbsolute(iso) : formatRelative(iso)}</span>
+      {actor && (
+        <>
+          <span style={{ color: 'var(--ink-4)' }}>·</span>
+          <span className="truncate" style={{ color: 'var(--ink-2)' }}>
+            {actor.name}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
 
 function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (

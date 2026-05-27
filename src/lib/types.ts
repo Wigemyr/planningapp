@@ -63,6 +63,11 @@ export interface Item {
   updatedAt: string;
   startedAt: string | null;
   resolvedAt: string | null;
+  /** Profile id of the person who created this item. NULL for items created
+   * before the column existed, or if the author's profile was deleted. */
+  createdBy: string | null;
+  /** Profile id of the most recent updater. Stamped by updateItem. */
+  updatedBy: string | null;
   /** Ordering within a column. Lower = higher. Bugs ignore this within their group. */
   position: number;
 }
