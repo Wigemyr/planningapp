@@ -43,13 +43,11 @@
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* Custom cursor: refined arrow in lighter grey with subtle white outline.
-     * Same SVG is reused on clickables below so the cursor doesn't morph into the
-     * OS default hand (which is huge + colored on Windows). Hot-spot at (3,2). */
+    /* Default cursor: dim grey arrow with white outline. Hot-spot at (3,2). */
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23c4c5cb' stroke='%23f5f5f7' stroke-width='1.2' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, default;
   }
-  /* Override the OS hand on every clickable so the cursor stays our grey arrow.
-   * The final fallback is still `pointer` if the SVG can't load. */
+  /* Clickables get a BRIGHTER arrow (white-ish fill + crisp outline) so the cursor
+   * visibly changes when you move from page bg onto a button. Same hot-spot. */
   button:not(:disabled),
   a[href],
   [role="button"],
@@ -64,7 +62,7 @@
   [class~="cursor-pointer"],
   [class~="cursor-grab"],
   [class~="cursor-move"] {
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23c4c5cb' stroke='%23f5f5f7' stroke-width='1.2' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, pointer;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M4 2 L18 11 L11 12 L8 18 Z' fill='%23ecedf2' stroke='%23ffffff' stroke-width='1.4' stroke-linejoin='round' stroke-linecap='round'/></svg>") 3 2, pointer;
   }
   /* Text-input fields keep the I-beam so editing feels normal. */
   input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
@@ -199,6 +197,29 @@
     left: 0; top: 6px; bottom: 6px;
     width: 2px; border-radius: 2px;
     background: var(--accent);
+  }
+
+  /* Filter chip (search bar's quick filters) — gets a visible hover bg so the
+   * user knows it's clickable even though we removed the OS hand cursor. */
+  .filter-chip {
+    background: transparent;
+    border-color: var(--line-1);
+    color: var(--ink-2);
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+  }
+  .filter-chip:hover {
+    background: var(--surface-1);
+    border-color: var(--line-2);
+    color: var(--ink-1);
+  }
+  .filter-chip[data-active="true"] {
+    background: var(--accent-soft);
+    border-color: rgba(91, 141, 239, 0.32);
+    color: #c2c5f5;
+  }
+  .filter-chip[data-active="true"]:hover {
+    background: rgba(91, 141, 239, 0.16);
+    border-color: rgba(91, 141, 239, 0.48);
   }
 
   /* shadcn-ish button — bordered, neutral surface, used in sidebar header */
