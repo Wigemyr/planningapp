@@ -6,6 +6,8 @@ import type {
   Comment,
   Item,
   ItemType,
+  Notification,
+  NotificationKind,
   Priority,
   Project,
   Status,
@@ -43,6 +45,11 @@ interface DbComment {
   id: string; workspace_id: string; item_id: string; author_id: string | null;
   body: string; mentions: string[] | null; created_at: string; updated_at: string;
 }
+interface DbNotification {
+  id: string; recipient_id: string; workspace_id: string; item_id: string;
+  comment_id: string | null; actor_id: string | null;
+  kind: NotificationKind; read_at: string | null; created_at: string;
+}
 
 /* ---------- Mappers ---------- */
 
@@ -66,6 +73,17 @@ const dbToAttachment = (r: DbAttachment): Attachment => ({
   storagePath: r.storage_path,
   sizeBytes: r.size_bytes,
   mimeType: r.mime_type,
+  createdAt: r.created_at,
+});
+const dbToNotification = (r: DbNotification): Notification => ({
+  id: r.id,
+  recipientId: r.recipient_id,
+  workspaceId: r.workspace_id,
+  itemId: r.item_id,
+  commentId: r.comment_id,
+  actorId: r.actor_id,
+  kind: r.kind,
+  readAt: r.read_at,
   createdAt: r.created_at,
 });
 const dbToComment = (r: DbComment): Comment => ({
@@ -136,6 +154,7 @@ interface StoreState {
   projects: Project[];
   items: Item[];
   comments: Comment[];
+  notifications: Notification[];
   members: WorkspaceMember[];
   invites: PendingInvite[];
 
@@ -183,6 +202,11 @@ interface StoreState {
   updateComment: (id: string, body: string, mentions: string[]) => Promise<void>;
   deleteComment: (id: string) => Promise<void>;
 
+  // notifications
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  dismissNotification: (id: string) => Promise<void>;
+
   // attachments
   addAttachment: (itemId: string, file: File) => Promise<void>;
   addAttachmentsFromBlobs: (
@@ -210,6 +234,7 @@ export const useStore = create<StoreState>((set, get) => ({
   projects: [],
   items: [],
   comments: [],
+  notifications: [],
   members: [],
   invites: [],
   currentWorkspaceId: null,
@@ -266,6 +291,7 @@ export const useStore = create<StoreState>((set, get) => ({
             projects: [],
             items: [],
             comments: [],
+            notifications: [],
             members: [],
             invites: [],
             currentWorkspaceId: null,
@@ -325,6 +351,18 @@ export const useStore = create<StoreState>((set, get) => ({
         .order('created_at', { ascending: true });
       const comments = ((commentsRes ?? []) as DbComment[]).map(dbToComment);
 
+      // Notifications for the signed-in user. Scoped to this workspace so we
+      // don't carry over bell badges from a workspace they just switched out
+      // of. Limit recent so the bell popover doesn't have to paginate.
+      const { data: notifRes } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('recipient_id', user.id)
+        .eq('workspace_id', currentWs.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      const notifications = ((notifRes ?? []) as DbNotification[]).map(dbToNotification);
+
       // Step 6: load members + invites for current workspace
       const { membersForWs, invitesForWs } = await fetchMembersAndInvites(
         currentWs.id,
@@ -339,6 +377,7 @@ export const useStore = create<StoreState>((set, get) => ({
         projects: dbProjects.map(dbToProject),
         items,
         comments,
+        notifications,
         members: membersForWs,
         invites: invitesForWs,
         currentWorkspaceId: currentWs.id,
@@ -368,6 +407,7 @@ export const useStore = create<StoreState>((set, get) => ({
       projects: [],
       items: [],
       comments: [],
+      notifications: [],
       members: [],
       invites: [],
       currentWorkspaceId: null,
@@ -831,6 +871,67 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  markNotificationRead: async (id) => {
+    const prev = get().notifications.find((n) => n.id === id);
+    if (!prev || prev.readAt) return;
+    const nowIso = new Date().toISOString();
+    set((s) => ({
+      notifications: s.notifications.map((n) =>
+        n.id === id ? { ...n, readAt: nowIso } : n,
+      ),
+    }));
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: nowIso })
+      .eq('id', id);
+    if (error) {
+      set((s) => ({
+        notifications: s.notifications.map((n) => (n.id === id ? prev : n)),
+      }));
+      throw error;
+    }
+  },
+
+  markAllNotificationsRead: async () => {
+    const state = get();
+    const userId = state.currentUserId;
+    if (!userId) return;
+    const unread = state.notifications.filter((n) => !n.readAt);
+    if (unread.length === 0) return;
+    const nowIso = new Date().toISOString();
+    set((s) => ({
+      notifications: s.notifications.map((n) =>
+        n.readAt ? n : { ...n, readAt: nowIso },
+      ),
+    }));
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read_at: nowIso })
+      .eq('recipient_id', userId)
+      .is('read_at', null);
+    if (error) {
+      // Rollback to prior unread set
+      set((s) => ({
+        notifications: s.notifications.map((n) => {
+          if (!unread.some((u) => u.id === n.id)) return n;
+          return { ...n, readAt: null };
+        }),
+      }));
+      throw error;
+    }
+  },
+
+  dismissNotification: async (id) => {
+    const prev = get().notifications.find((n) => n.id === id);
+    if (!prev) return;
+    set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) }));
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
+    if (error) {
+      set((s) => ({ notifications: [...s.notifications, prev] }));
+      throw error;
+    }
+  },
+
   addAttachment: async (itemId, file) => {
     await get().addAttachmentsFromBlobs(itemId, [{ blob: file, filename: file.name }]);
   },
@@ -1224,6 +1325,40 @@ function startRealtime(
             };
           }
           return { comments: [...s.comments, comment] };
+        });
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `workspace_id=eq.${workspaceId}`,
+      },
+      (payload) => {
+        const myId = get().currentUserId;
+        if (payload.eventType === 'DELETE') {
+          const id = (payload.old as { id?: string }).id;
+          if (!id) return;
+          set((s) => ({ notifications: s.notifications.filter((n) => n.id !== id) }));
+          return;
+        }
+        const row = payload.new as DbNotification;
+        // RLS keeps other recipients' rows out of the response, but the
+        // realtime stream isn't policy-filtered — gate client-side.
+        if (myId && row.recipient_id !== myId) return;
+        const notif = dbToNotification(row);
+        set((s) => {
+          const exists = s.notifications.find((n) => n.id === notif.id);
+          if (exists) {
+            return {
+              notifications: s.notifications.map((n) =>
+                n.id === notif.id ? notif : n,
+              ),
+            };
+          }
+          return { notifications: [notif, ...s.notifications] };
         });
       },
     )

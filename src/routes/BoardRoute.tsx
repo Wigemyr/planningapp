@@ -2,6 +2,7 @@ import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Board } from '@/components/Board';
 import { BoardFilters } from '@/components/BoardFilters';
+import { NotificationBell } from '@/components/NotificationBell';
 import { Plus, Columns, Rows3 } from '@/components/icons';
 
 export default function BoardRoute() {
@@ -42,6 +43,8 @@ export default function BoardRoute() {
         </span>
 
         <div className="flex-1" />
+
+        <NotificationBell />
 
         {/* Layout toggle: shows the icon of the OTHER mode (the one you'd switch to). */}
         <button
