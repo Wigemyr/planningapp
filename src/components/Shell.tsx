@@ -4,6 +4,7 @@ import { NewItemDialog } from './NewItemDialog';
 import { NewProjectDialog } from './NewProjectDialog';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ContextMenu } from './ContextMenu';
+import { ProjectAppearanceDialog } from './ProjectAppearanceDialog';
 import { useUi } from '@/store/useUi';
 import { useStore } from '@/store/useStore';
 
@@ -44,6 +45,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       />
       <ConfirmDialog />
       <ContextMenu />
+      <ProjectAppearanceDialog />
     </div>
   );
 }
