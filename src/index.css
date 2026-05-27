@@ -306,6 +306,21 @@
     @apply text-[12.5px] text-ink-2 px-2 py-1.5 inline-flex items-center;
   }
 
+  /* Rich-text editor body — re-enable list bullet/number visuals that the
+   * Tailwind base reset strips by default. */
+  .rich-editor ul,
+  .rich-editor ol {
+    padding-left: 1.4rem;
+    margin: 0.15rem 0;
+  }
+  .rich-editor ul { list-style: disc outside; }
+  .rich-editor ol { list-style: decimal outside; }
+  .rich-editor li { padding-left: 0.15rem; }
+  .rich-editor strong, .rich-editor b { font-weight: 600; color: var(--ink-1); }
+  .rich-editor em, .rich-editor i { font-style: italic; }
+  .rich-editor u { text-decoration: underline; text-decoration-color: var(--ink-3); }
+  .rich-editor s, .rich-editor strike { text-decoration: line-through; }
+
   /* Custom checkbox — shadcn-style */
   .check {
     appearance: none;

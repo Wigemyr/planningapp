@@ -42,4 +42,10 @@ export {
   PanelLeftClose,
   PanelLeftOpen,
   AlertOctagon,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  List,
+  ListOrdered,
 } from 'lucide-react';
