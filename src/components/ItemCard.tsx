@@ -1,9 +1,17 @@
 import { useNavigate } from 'react-router-dom';
-import type { Item } from '@/lib/types';
+import type { Item, ItemType } from '@/lib/types';
 import { STATUS_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL } from '@/lib/constants';
 import { useStore } from '@/store/useStore';
 import { Avatar } from './Avatar';
 import { Bug, Paperclip, Clock } from './icons';
+
+/** Restrained, single-tone palette per item type (Slate Paper). Only Bug pops. */
+const TYPE_PILL: Record<ItemType, { label: string; bg: string; color: string; border?: string }> = {
+  bug:     { label: 'Bug',     bg: 'rgba(198,110,107,0.10)', color: 'var(--sem-danger)', border: 'rgba(198,110,107,0.20)' },
+  feature: { label: 'Feature', bg: 'rgba(255,255,255,0.05)', color: 'var(--ink-2)' },
+  task:    { label: 'Task',    bg: 'rgba(255,255,255,0.05)', color: 'var(--ink-3)' },
+  idea:    { label: 'Idea',    bg: 'rgba(199,147,72,0.10)',  color: 'var(--sem-warn)' },
+};
 
 interface Props {
   item: Item;
@@ -27,6 +35,7 @@ export function ItemCard({ item, dragging = false }: Props) {
   return (
     <article
       onClick={(e) => {
+        // ignore if a drag just happened (handled by listeners)
         e.stopPropagation();
         navigate(`/items/${item.id}`);
       }}
@@ -41,15 +50,23 @@ export function ItemCard({ item, dragging = false }: Props) {
       aria-label={`${item.shortId}: ${item.title}`}
     >
       <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
-        {isBug && (
-          <span
-            className="type-bug-pill"
-            style={{ opacity: item.status === 'resolved' ? 0.7 : 1 }}
-          >
-            <Bug strokeWidth={2.25} />
-            Bug
-          </span>
-        )}
+        {(() => {
+          const t = TYPE_PILL[item.type];
+          return (
+            <span
+              className="pill inline-flex items-center gap-[3px]"
+              style={{
+                background: t.bg,
+                color: t.color,
+                border: t.border ? `1px solid ${t.border}` : undefined,
+                opacity: item.status === 'resolved' ? 0.7 : 1,
+              }}
+            >
+              {isBug && <Bug className="w-2.5 h-2.5" strokeWidth={2.25} />}
+              {t.label}
+            </span>
+          );
+        })()}
         <span className="meta-text">{item.shortId}</span>
         {item.priority && (
           <span
@@ -85,6 +102,7 @@ export function ItemCard({ item, dragging = false }: Props) {
 
       <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-line">
         <Avatar user={assignee} size={20} faded={isResolved} />
+        {/* Project chip — only shown in "All projects" view */}
         {currentProjectId === null && project && (
           <span className="text-[11px] text-ink-subtle truncate max-w-[120px]" title={project.name}>
             <span className="dot mr-1 align-middle" style={{ background: project.color, width: 6, height: 6 }} />
@@ -117,6 +135,7 @@ function waitingDays(iso: string) {
 }
 
 function labelStyle(label: string): React.CSSProperties {
+  // small palette by label name — keeps colors stable across renders
   const palette: Record<string, { bg: string; color: string }> = {
     billing:   { bg: 'rgba(245,158,11,0.10)', color: '#f59e0b' },
     api:       { bg: 'rgba(16,185,129,0.12)', color: '#10b981' },

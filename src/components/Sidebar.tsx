@@ -47,7 +47,6 @@ export function Sidebar() {
   const signOut = useStore((s) => s.signOut);
   const members = useStore((s) => s.members);
   const currentUserId = useStore((s) => s.currentUserId);
-  const openNewItem = useUi((s) => s.openNewItem);
   const openNewProject = useUi((s) => s.openNewProject);
   const collapsed = useUi((s) => s.sidebarCollapsed);
   const toggleSidebar = useUi((s) => s.toggleSidebar);
@@ -114,7 +113,7 @@ export function Sidebar() {
         transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      <div className="p-2 space-y-1.5">
+      <div className="p-2">
         <button
           type="button"
           className="surface-button"
@@ -127,21 +126,6 @@ export function Sidebar() {
             <>
               <span className="flex-1 text-left truncate">{workspace?.name}</span>
               <ChevronDown className="w-3.5 h-3.5 opacity-60" strokeWidth={1.75} />
-            </>
-          )}
-        </button>
-
-        <button
-          type="button"
-          className="surface-button"
-          onClick={() => openNewItem()}
-          title="New item"
-        >
-          <Plus className="w-4 h-4 shrink-0" strokeWidth={1.75} />
-          {!collapsed && (
-            <>
-              <span className="text-left">New item</span>
-              <span className="kbd ml-auto">C</span>
             </>
           )}
         </button>
@@ -353,7 +337,7 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onDel
             type="button"
             {...attributes}
             {...listeners}
-            className="opacity-0 group-hover:opacity-60 hover:!opacity-100 -ml-1.5 -mr-0.5 cursor-grab active:cursor-grabbing text-ink-subtle"
+            className="opacity-0 group-hover:opacity-60 hover:!opacity-100 -ml-1.5 -mr-0.5 cursor-move text-ink-subtle"
             aria-label="Drag to reorder"
             tabIndex={-1}
           >

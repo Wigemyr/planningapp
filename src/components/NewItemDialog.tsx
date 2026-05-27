@@ -51,9 +51,6 @@ export function NewItemDialog() {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
-        // Only close if no select is open inside the dialog; Select handles its
-        // own Esc with stopPropagation, so by the time we see Esc here the
-        // dropdown was already closed (or wasn't open).
         close();
       }
     }
@@ -61,7 +58,6 @@ export function NewItemDialog() {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, close]);
 
-  // Image paste: stage blobs locally; upload after item creation succeeds.
   useEffect(() => {
     if (!open) return;
     async function onPaste(e: ClipboardEvent) {
@@ -91,7 +87,6 @@ export function NewItemDialog() {
     return () => document.removeEventListener('paste', onPaste);
   }, [open]);
 
-  // Clean up preview URLs when blobs are removed or dialog closes
   useEffect(() => {
     return () => {
       pastedBlobs.forEach((b) => URL.revokeObjectURL(b.previewUrl));
@@ -118,7 +113,6 @@ export function NewItemDialog() {
           pastedBlobs.map((b) => ({ blob: b.blob, filename: b.filename })),
         );
       }
-      // Revoke preview URLs
       pastedBlobs.forEach((b) => URL.revokeObjectURL(b.previewUrl));
       close();
       if (navigateToItem) navigate(`/items/${item.id}`);
@@ -158,11 +152,15 @@ export function NewItemDialog() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-item-title"
-        className="w-full max-w-[560px] bg-panel border border-line shadow-2xl shadow-black/50"
-        style={{ borderRadius: 10 }}
+        className="w-full max-w-[680px] overflow-hidden shadow-2xl shadow-black/50"
+        style={{
+          background: 'var(--surface-2)',
+          border: '1px solid var(--line-2)',
+          borderRadius: 6,
+        }}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-line">
-          <h2 id="new-item-title" className="text-[13px] font-semibold">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-line">
+          <h2 id="new-item-title" className="text-[13px] font-semibold tracking-tight">
             New item
           </h2>
           <button
@@ -175,7 +173,7 @@ export function NewItemDialog() {
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-5 space-y-3">
           <input
             ref={titleRef}
             type="text"
@@ -198,7 +196,6 @@ export function NewItemDialog() {
             className="w-full bg-transparent text-[13.5px] leading-relaxed text-ink-2 placeholder:text-ink-subtle resize-none focus:outline-none"
           />
 
-          {/* Pasted/staged attachments */}
           {pastedBlobs.length > 0 && (
             <div className="pt-1">
               <div className="flex items-center gap-1.5 mb-2 text-[11px] text-ink-muted">
@@ -235,7 +232,6 @@ export function NewItemDialog() {
           )}
 
           <div className="flex items-center gap-1.5 pt-2 flex-wrap">
-            {/* Type segmented picker */}
             <div className="flex items-center rounded-md border border-line p-0.5">
               {ITEM_TYPES.map((t) => (
                 <button
@@ -271,17 +267,17 @@ export function NewItemDialog() {
         </div>
 
         <div
-          className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#13161c]"
-          style={{ borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}
+          className="flex items-center justify-between px-5 py-3.5 border-t border-line"
+          style={{ background: 'rgba(0,0,0,0.18)' }}
         >
-          <span className="text-[11px] text-ink-subtle">
+          <span className="text-[11.5px] text-ink-subtle">
             <span className="kbd">⌘</span> <span className="kbd">↵</span> to create
           </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={close}
-              className="text-[12px] px-3 py-1.5 rounded text-ink-2 hover:bg-white/[0.04]"
+              className="text-[12.5px] px-3 py-1.5 rounded-md text-ink-2 hover:bg-white/[0.05] transition-colors"
             >
               Cancel
             </button>
@@ -289,7 +285,22 @@ export function NewItemDialog() {
               type="button"
               onClick={() => void submit(false)}
               disabled={!title.trim() || !projectId || submitting}
-              className="text-[12px] font-medium px-3 py-1.5 rounded text-white bg-accent hover:bg-accent-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="text-[12.5px] font-medium px-3.5 py-1.5 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--surface-4)',
+                border: '1px solid var(--line-2)',
+                color: 'var(--ink-1)',
+              }}
+              onMouseEnter={(e) => {
+                if (!e.currentTarget.disabled) {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                  e.currentTarget.style.borderColor = 'var(--line-3)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--surface-4)';
+                e.currentTarget.style.borderColor = 'var(--line-2)';
+              }}
             >
               {submitting ? 'Creating…' : 'Create'}
             </button>
