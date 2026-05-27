@@ -20,9 +20,7 @@ import {
   Upload,
   X,
   Trash2,
-  Share2,
   Link2,
-  MoreHorizontal,
   Check,
   CornerDownLeft,
 } from '@/components/icons';
@@ -348,25 +346,12 @@ export default function ItemRoute() {
             )}
             <button
               type="button"
-              className="flex items-center gap-1.5 text-[12.5px] px-2 py-1 rounded hover:bg-white/[0.04] text-ink-2"
-            >
-              <Share2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-              Share
-            </button>
-            <button
-              type="button"
               onClick={() => navigator.clipboard?.writeText(window.location.href)}
-              className="flex items-center gap-1.5 text-[12.5px] px-2 py-1 rounded hover:bg-white/[0.04] text-ink-2"
+              className="flex items-center gap-1.5 text-[12.5px] px-2 py-1 rounded hover:bg-white/[0.04] text-ink-2 transition-colors"
+              title="Copy link to this item"
             >
               <Link2 className="w-3.5 h-3.5" strokeWidth={1.75} />
               Copy link
-            </button>
-            <button
-              type="button"
-              className="p-1 rounded hover:bg-white/[0.04] text-ink-2"
-              aria-label="More"
-            >
-              <MoreHorizontal className="w-3.5 h-3.5" strokeWidth={1.75} />
             </button>
           </>
         )}
@@ -567,7 +552,7 @@ export default function ItemRoute() {
         </div>
 
         {/* right rail: properties */}
-        <aside className="w-[280px] shrink-0 border-l border-line overflow-y-auto bg-[#08090b]">
+        <aside className="w-[280px] shrink-0 border-l border-line overflow-y-auto bg-[#0c0f14]">
           <div className="p-4">
             <div className="text-[10px] uppercase tracking-[0.16em] font-semibold mb-3 text-ink-subtle">
               Properties
@@ -752,7 +737,7 @@ export default function ItemRoute() {
               </p>
             </div>
             <div
-              className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line bg-[#0b0d11]"
+              className="flex items-center justify-end gap-2 px-5 py-3 border-t border-line bg-[#13161c]"
               style={{ borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}
             >
               <button

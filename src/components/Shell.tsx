@@ -1,11 +1,16 @@
 import { useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { NewItemDialog } from './NewItemDialog';
+import { NewProjectDialog } from './NewProjectDialog';
 import { useUi } from '@/store/useUi';
+import { useStore } from '@/store/useStore';
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   const openNewItem = useUi((s) => s.openNewItem);
   const newItemOpen = useUi((s) => s.newItemOpen);
+  const newProjectOpen = useUi((s) => s.newProjectOpen);
+  const closeNewProject = useUi((s) => s.closeNewProject);
+  const setCurrentProject = useStore((s) => s.setCurrentProject);
 
   // Global keyboard shortcut: "C" opens new-item dialog when not typing
   useEffect(() => {
@@ -30,6 +35,11 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main className="flex-1 flex flex-col min-w-0">{children}</main>
       <NewItemDialog />
+      <NewProjectDialog
+        open={newProjectOpen}
+        onClose={closeNewProject}
+        onCreated={(id) => setCurrentProject(id)}
+      />
     </div>
   );
 }

@@ -2,9 +2,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { useNavigate } from 'react-router-dom';
-import { ITEM_TYPES, type ItemType, type Status } from '@/lib/types';
-import { TYPE_CONFIG } from '@/lib/constants';
-import { Bug, X } from './icons';
+import { ITEM_TYPES, STATUSES, type ItemType, type Status } from '@/lib/types';
+import { STATUS_CONFIG, TYPE_CONFIG } from '@/lib/constants';
+import { Select } from './Select';
+import { Bug, X, Paperclip } from './icons';
+import { formatBytes } from '@/lib/format';
+
+interface PastedBlob {
+  id: string;
+  blob: Blob;
+  filename: string;
+  previewUrl: string;
+}
 
 export function NewItemDialog() {
   const open = useUi((s) => s.newItemOpen);
@@ -13,6 +22,7 @@ export function NewItemDialog() {
   const projects = useStore((s) => s.projects);
   const currentProjectId = useStore((s) => s.currentProjectId);
   const createItem = useStore((s) => s.createItem);
+  const addAttachmentsFromBlobs = useStore((s) => s.addAttachmentsFromBlobs);
   const navigate = useNavigate();
 
   const [title, setTitle] = useState('');
@@ -20,6 +30,8 @@ export function NewItemDialog() {
   const [projectId, setProjectId] = useState<string>('');
   const [type, setType] = useState<ItemType>('task');
   const [status, setStatus] = useState<Status>('backlog');
+  const [pastedBlobs, setPastedBlobs] = useState<PastedBlob[]>([]);
+  const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -29,7 +41,8 @@ export function NewItemDialog() {
       setProjectId(currentProjectId || projects[0]?.id || '');
       setType('task');
       setStatus((defaults?.status as Status) ?? 'backlog');
-      // Focus title on next tick
+      setPastedBlobs([]);
+      setSubmitting(false);
       setTimeout(() => titleRef.current?.focus(), 10);
     }
   }, [open, currentProjectId, projects, defaults]);
@@ -37,16 +50,60 @@ export function NewItemDialog() {
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') close();
+      if (e.key === 'Escape') {
+        // Only close if no select is open inside the dialog; Select handles its
+        // own Esc with stopPropagation, so by the time we see Esc here the
+        // dropdown was already closed (or wasn't open).
+        close();
+      }
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, close]);
 
+  // Image paste: stage blobs locally; upload after item creation succeeds.
+  useEffect(() => {
+    if (!open) return;
+    async function onPaste(e: ClipboardEvent) {
+      const data = e.clipboardData;
+      if (!data) return;
+      const blobs: PastedBlob[] = [];
+      for (const it of Array.from(data.items)) {
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+          const file = it.getAsFile();
+          if (file) {
+            const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+            const previewUrl = URL.createObjectURL(file);
+            blobs.push({
+              id: crypto.randomUUID(),
+              blob: file,
+              filename: file.name || `pasted-${Date.now()}.${ext}`,
+              previewUrl,
+            });
+          }
+        }
+      }
+      if (blobs.length === 0) return;
+      e.preventDefault();
+      setPastedBlobs((prev) => [...prev, ...blobs]);
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [open]);
+
+  // Clean up preview URLs when blobs are removed or dialog closes
+  useEffect(() => {
+    return () => {
+      pastedBlobs.forEach((b) => URL.revokeObjectURL(b.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (!open) return null;
 
   async function submit(navigateToItem = false) {
-    if (!title.trim() || !projectId) return;
+    if (!title.trim() || !projectId || submitting) return;
+    setSubmitting(true);
     try {
       const item = await createItem({
         title,
@@ -55,17 +112,44 @@ export function NewItemDialog() {
         type,
         status,
       });
+      if (pastedBlobs.length > 0) {
+        await addAttachmentsFromBlobs(
+          item.id,
+          pastedBlobs.map((b) => ({ blob: b.blob, filename: b.filename })),
+        );
+      }
+      // Revoke preview URLs
+      pastedBlobs.forEach((b) => URL.revokeObjectURL(b.previewUrl));
       close();
       if (navigateToItem) navigate(`/items/${item.id}`);
     } catch (err) {
       console.error('[planning] createItem failed', err);
-      // Leave the dialog open so the user can try again.
+      setSubmitting(false);
     }
   }
 
+  function removeBlob(id: string) {
+    setPastedBlobs((prev) => {
+      const toRemove = prev.find((b) => b.id === id);
+      if (toRemove) URL.revokeObjectURL(toRemove.previewUrl);
+      return prev.filter((b) => b.id !== id);
+    });
+  }
+
+  const statusOptions = STATUSES.map((s) => ({
+    value: s,
+    label: STATUS_CONFIG[s].label,
+    dot: STATUS_CONFIG[s].dot,
+  }));
+  const projectOptions = projects.map((p) => ({
+    value: p.id,
+    label: p.name,
+    dot: p.color,
+  }));
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/55 backdrop-blur-sm pt-[12vh] px-4"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm pt-[12vh] px-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) close();
       }}
@@ -74,7 +158,7 @@ export function NewItemDialog() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-item-title"
-        className="w-full max-w-[560px] bg-panel border border-line rounded-lg shadow-2xl shadow-black/40"
+        className="w-full max-w-[560px] bg-panel border border-line shadow-2xl shadow-black/50"
         style={{ borderRadius: 10 }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-line">
@@ -107,15 +191,51 @@ export function NewItemDialog() {
             className="w-full bg-transparent text-[16px] font-medium leading-snug placeholder:text-ink-subtle focus:outline-none"
           />
           <textarea
-            placeholder="Add a description (optional)…"
+            placeholder="Add a description (optional)… Ctrl+V to attach images"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             className="w-full bg-transparent text-[13.5px] leading-relaxed text-ink-2 placeholder:text-ink-subtle resize-none focus:outline-none"
           />
 
+          {/* Pasted/staged attachments */}
+          {pastedBlobs.length > 0 && (
+            <div className="pt-1">
+              <div className="flex items-center gap-1.5 mb-2 text-[11px] text-ink-muted">
+                <Paperclip className="w-3 h-3" strokeWidth={1.75} />
+                <span>{pastedBlobs.length} attachment{pastedBlobs.length === 1 ? '' : 's'} ready</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {pastedBlobs.map((b) => (
+                  <div
+                    key={b.id}
+                    className="relative group rounded-md border border-line overflow-hidden bg-panel-2"
+                    style={{ aspectRatio: '16 / 10' }}
+                  >
+                    <img
+                      src={b.previewUrl}
+                      alt={b.filename}
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute left-1.5 bottom-1.5 text-[10px] px-1.5 py-0.5 rounded bg-black/55 text-ink-2 truncate max-w-[calc(100%-12px)]">
+                      {formatBytes(b.blob.size)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeBlob(b.id)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      aria-label="Remove attachment"
+                    >
+                      <X className="w-3 h-3" strokeWidth={2} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 pt-2 flex-wrap">
-            {/* Type picker */}
+            {/* Type segmented picker */}
             <div className="flex items-center rounded-md border border-line p-0.5">
               {ITEM_TYPES.map((t) => (
                 <button
@@ -133,36 +253,27 @@ export function NewItemDialog() {
               ))}
             </div>
 
-            {/* Status picker */}
-            <select
+            <Select
               value={status}
-              onChange={(e) => setStatus(e.target.value as Status)}
-              className="text-[11.5px] bg-panel-2 border border-line rounded px-2 py-1 text-ink-2"
-              aria-label="Status"
-            >
-              <option value="backlog">Backlog</option>
-              <option value="active">Active</option>
-              <option value="waiting">Waiting</option>
-              <option value="blocked">Blocked</option>
-              <option value="resolved">Resolved</option>
-              <option value="discarded">Discarded</option>
-            </select>
-
-            {/* Project picker */}
-            <select
+              onChange={(v) => setStatus(v as Status)}
+              options={statusOptions}
+              ariaLabel="Status"
+            />
+            <Select
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="text-[11.5px] bg-panel-2 border border-line rounded px-2 py-1 text-ink-2 max-w-[180px]"
-              aria-label="Project"
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+              onChange={setProjectId}
+              options={projectOptions}
+              ariaLabel="Project"
+              className="max-w-[200px]"
+              placeholder="Project"
+            />
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#0b0d11]" style={{ borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-t border-line bg-[#13161c]"
+          style={{ borderBottomLeftRadius: 10, borderBottomRightRadius: 10 }}
+        >
           <span className="text-[11px] text-ink-subtle">
             <span className="kbd">⌘</span> <span className="kbd">↵</span> to create
           </span>
@@ -177,10 +288,10 @@ export function NewItemDialog() {
             <button
               type="button"
               onClick={() => void submit(false)}
-              disabled={!title.trim() || !projectId}
+              disabled={!title.trim() || !projectId || submitting}
               className="text-[12px] font-medium px-3 py-1.5 rounded text-white bg-accent hover:bg-accent-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Create
+              {submitting ? 'Creating…' : 'Create'}
             </button>
           </div>
         </div>

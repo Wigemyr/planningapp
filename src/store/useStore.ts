@@ -133,6 +133,10 @@ interface StoreState {
   removeMember: (userId: string) => Promise<void>;
   refreshMembersAndInvites: () => Promise<void>;
 
+  // Projects
+  createProject: (input: { name: string; color: string; shortPrefix: string }) => Promise<Project>;
+  deleteProject: (id: string) => Promise<void>;
+
   // CRUD (async, optimistic)
   createItem: (input: NewItemInput) => Promise<Item>;
   updateItem: (id: string, patch: Partial<Item>) => Promise<void>;
@@ -323,6 +327,53 @@ export const useStore = create<StoreState>((set, get) => ({
   signOut: async () => {
     await supabase.auth.signOut();
     // teardown is called by AuthGate when session becomes null
+  },
+
+  createProject: async (input) => {
+    const wsId = get().currentWorkspaceId;
+    if (!wsId) throw new Error('No active workspace');
+    const id = crypto.randomUUID();
+    const optimistic: Project = {
+      id,
+      workspaceId: wsId,
+      name: input.name.trim() || 'Untitled project',
+      color: input.color || '#7170ff',
+      shortPrefix: (input.shortPrefix || 'PRJ').toUpperCase().slice(0, 6),
+    };
+    set((s) => ({ projects: [...s.projects, optimistic] }));
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({
+        id,
+        workspace_id: wsId,
+        name: optimistic.name,
+        color: optimistic.color,
+        short_prefix: optimistic.shortPrefix,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      set((s) => ({ projects: s.projects.filter((p) => p.id !== id) }));
+      throw error ?? new Error('Failed to create project');
+    }
+    const final = dbToProject(data as DbProject);
+    set((s) => ({ projects: s.projects.map((p) => (p.id === id ? final : p)) }));
+    return final;
+  },
+
+  deleteProject: async (id) => {
+    const prev = get().projects.find((p) => p.id === id);
+    if (!prev) return;
+    set((s) => ({
+      projects: s.projects.filter((p) => p.id !== id),
+      items: s.items.filter((i) => i.projectId !== id),
+      currentProjectId: s.currentProjectId === id ? null : s.currentProjectId,
+    }));
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (error) {
+      set((s) => ({ projects: [...s.projects, prev] }));
+      throw error;
+    }
   },
 
   createItem: async (input) => {

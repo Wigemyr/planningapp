@@ -4,9 +4,7 @@ import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
 import {
-  Search,
   Plus,
-  Inbox,
   User,
   ChevronDown,
   Settings,
@@ -25,6 +23,7 @@ export function Sidebar() {
   const members = useStore((s) => s.members);
   const currentUserId = useStore((s) => s.currentUserId);
   const openNewItem = useUi((s) => s.openNewItem);
+  const openNewProject = useUi((s) => s.openNewProject);
   const navigate = useNavigate();
 
   const isOwner =
@@ -52,11 +51,8 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-[244px] shrink-0 border-r border-line flex flex-col bg-[#08090b]">
-      <button
-        type="button"
-        className="m-2 px-2 py-1.5 rounded-md flex items-center gap-2 hover:bg-white/[0.04] text-left"
-      >
+    <aside className="w-[244px] shrink-0 border-r border-line flex flex-col bg-[#0c0f14]">
+      <div className="m-2 px-2 py-1.5 rounded-md flex items-center gap-2">
         <div
           className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-semibold text-white"
           style={{ background: '#6d28d9' }}
@@ -67,15 +63,10 @@ export function Sidebar() {
         <div className="flex-1 min-w-0">
           <div className="text-[12.5px] font-medium truncate">{workspace?.name}</div>
         </div>
-        <ChevronDown className="w-3 h-3 text-ink-subtle" />
-      </button>
+        <ChevronDown className="w-3 h-3 text-ink-subtle opacity-50" />
+      </div>
 
       <div className="px-2 space-y-0.5 mb-3">
-        <button type="button" className="sidebar-link w-full">
-          <Search className="w-3.5 h-3.5" strokeWidth={1.75} />
-          <span className="flex-1 text-left">Search</span>
-          <span className="kbd">⌘K</span>
-        </button>
         <button
           type="button"
           className="sidebar-link w-full"
@@ -85,21 +76,18 @@ export function Sidebar() {
           <span className="flex-1 text-left">New item</span>
           <span className="kbd">C</span>
         </button>
-        <button type="button" className="sidebar-link w-full">
-          <User className="w-3.5 h-3.5" strokeWidth={1.75} />
-          <span className="flex-1 text-left">My items</span>
-        </button>
-        <button type="button" className="sidebar-link w-full">
-          <Inbox className="w-3.5 h-3.5" strokeWidth={1.75} />
-          <span className="flex-1 text-left">Inbox</span>
-        </button>
       </div>
 
       <div className="px-4 mb-1.5 flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
           Projects
         </span>
-        <button type="button" className="text-ink-subtle hover:text-ink-2" aria-label="New project">
+        <button
+          type="button"
+          onClick={openNewProject}
+          className="text-ink-subtle hover:text-ink-2 p-0.5 rounded transition-colors"
+          aria-label="New project"
+        >
           <Plus className="w-3 h-3" strokeWidth={2} />
         </button>
       </div>
@@ -111,7 +99,7 @@ export function Sidebar() {
         >
           <span className="dot" style={{ background: '#a0a3ad' }} />
           <span className="flex-1 truncate text-left">All projects</span>
-          <span className="meta-text">{items.filter(i => i.status !== 'resolved' && i.status !== 'discarded').length}</span>
+          <span className="meta-text">{items.filter((i) => i.status !== 'resolved' && i.status !== 'discarded').length}</span>
         </button>
         {projects.map((p) => (
           <button
@@ -125,6 +113,14 @@ export function Sidebar() {
             <span className="meta-text">{projectCounts.get(p.id) ?? 0}</span>
           </button>
         ))}
+        <button
+          type="button"
+          onClick={openNewProject}
+          className="sidebar-link w-full text-ink-muted hover:text-ink-2"
+        >
+          <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+          <span className="flex-1 text-left">New project</span>
+        </button>
       </div>
 
       <div ref={menuRef} className="relative border-t border-line p-2 flex items-center gap-2">

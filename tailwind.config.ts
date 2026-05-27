@@ -8,17 +8,18 @@ export default {
         sans: ['Geist', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
       },
       colors: {
-        // Surfaces
-        bg: '#0a0b0d',
+        // Surfaces — bumped a touch lighter than the original near-black so the UI
+        // feels less heavy without losing the dark dashboard aesthetic.
+        bg: '#0f1116',
         panel: {
-          DEFAULT: '#0e1117',
-          2: '#14171c',
-          3: '#181c22',
+          DEFAULT: '#171a21',
+          2: '#1e222a',
+          3: '#252a33',
         },
         // Lines (avoid clashing with border-utility)
         line: {
-          DEFAULT: '#1c1f25',
-          2: '#272b33',
+          DEFAULT: '#262b34',
+          2: '#343a45',
         },
         // Ink (text)
         ink: {
