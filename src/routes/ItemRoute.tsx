@@ -12,6 +12,8 @@ import {
   PRIORITY_LABEL,
 } from '@/lib/constants';
 import { Avatar } from '@/components/Avatar';
+import { ImageLightbox } from '@/components/ImageLightbox';
+import { useUi } from '@/store/useUi';
 import { formatAbsolute, formatRelative, formatBytes } from '@/lib/format';
 import {
   ArrowLeft,
@@ -70,6 +72,10 @@ export default function ItemRoute() {
   const addAttachmentsFromBlobs = useStore((s) => s.addAttachmentsFromBlobs);
   const removeAttachment = useStore((s) => s.removeAttachment);
   const refreshAttachmentUrls = useStore((s) => s.refreshAttachmentUrls);
+  const openConfirm = useUi((s) => s.openConfirm);
+
+  // Lightbox state — null = closed, number = index of the visible attachment.
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const item = items.find((i) => i.id === id);
 
@@ -484,11 +490,14 @@ export default function ItemRoute() {
                 }}
                 className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 rounded-lg p-0.5 transition-shadow"
               >
-                {item.attachments.map((att) => (
-                  <div
+                {item.attachments.map((att, idx) => (
+                  <button
                     key={att.id}
-                    className="relative group rounded-md border border-line overflow-hidden bg-panel cursor-zoom-in"
+                    type="button"
+                    onClick={() => setLightboxIndex(idx)}
+                    className="relative group rounded-md border border-line overflow-hidden bg-panel cursor-zoom-in text-left"
                     style={{ aspectRatio: '16 / 10' }}
+                    aria-label={`Open preview of ${att.filename}`}
                   >
                     <img
                       src={att.url ?? ''}
@@ -499,20 +508,46 @@ export default function ItemRoute() {
                     <span className="absolute left-1.5 bottom-1.5 text-[10.5px] px-1.5 py-0.5 rounded bg-black/55 text-ink-2 backdrop-blur-sm pointer-events-none truncate max-w-[calc(100%-12px)]">
                       {att.filename} · {formatBytes(att.sizeBytes)}
                     </span>
-                    <button
-                      type="button"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (confirm(`Remove ${att.filename}?`)) {
-                          void removeAttachment(item.id, att.id);
+                        openConfirm({
+                          title: `Remove ${att.filename}?`,
+                          description: (
+                            <>
+                              This will permanently delete the attachment from this item.
+                            </>
+                          ),
+                          confirmLabel: 'Remove',
+                          danger: true,
+                          onConfirm: () => removeAttachment(item.id, att.id),
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          openConfirm({
+                            title: `Remove ${att.filename}?`,
+                            description: (
+                              <>
+                                This will permanently delete the attachment from this item.
+                              </>
+                            ),
+                            confirmLabel: 'Remove',
+                            danger: true,
+                            onConfirm: () => removeAttachment(item.id, att.id),
+                          });
                         }
                       }}
-                      className="absolute top-1.5 right-1.5 w-[22px] h-[22px] rounded bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm hover:bg-black/75"
+                      className="absolute top-1.5 right-1.5 w-[22px] h-[22px] rounded bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm hover:bg-black/75 cursor-pointer"
                       aria-label={`Remove ${att.filename}`}
                     >
                       <X className="w-3 h-3" strokeWidth={2} />
-                    </button>
-                  </div>
+                    </span>
+                  </button>
                 ))}
                 <button
                   type="button"
@@ -536,9 +571,20 @@ export default function ItemRoute() {
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm(`Delete ${item.shortId}? This cannot be undone.`)) {
-                    void deleteItem(item.id).then(() => navigate('/'));
-                  }
+                  openConfirm({
+                    title: `Delete ${item.shortId}?`,
+                    description: (
+                      <>
+                        This will permanently delete{' '}
+                        <strong className="text-ink">"{item.title || 'Untitled'}"</strong> and any
+                        attachments on it. This cannot be undone.
+                      </>
+                    ),
+                    confirmLabel: 'Delete item',
+                    danger: true,
+                    onConfirm: () =>
+                      deleteItem(item.id).then(() => navigate('/')),
+                  });
                 }}
                 className="text-[12px] flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.04] text-ink-muted hover:text-[#ef4444] transition-colors"
               >
@@ -708,6 +754,16 @@ export default function ItemRoute() {
           </div>
         </aside>
       </div>
+
+      {/* Image lightbox — opens when an attachment thumb is clicked. */}
+      {lightboxIndex !== null && item.attachments.length > 0 && (
+        <ImageLightbox
+          attachments={item.attachments}
+          index={Math.min(lightboxIndex, item.attachments.length - 1)}
+          onClose={() => setLightboxIndex(null)}
+          onIndexChange={(next) => setLightboxIndex(next)}
+        />
+      )}
 
       {/* Unsaved-changes overlay */}
       {closeRequest && (
