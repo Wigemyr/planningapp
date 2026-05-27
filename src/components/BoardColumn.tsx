@@ -38,9 +38,11 @@ export function BoardColumn({ status, items, isLast }: Props) {
   return (
     <section
       ref={setNodeRef}
-      className="w-[300px] shrink-0 flex flex-col h-full relative"
+      className="flex-1 flex flex-col h-full relative"
       style={{
-        paddingRight: isLast ? 0 : 12,
+        minWidth: 280,
+        padding: '0 12px',
+        // Hairline column separator (Linear-style)
         boxShadow: isLast
           ? undefined
           : 'inset -1px 0 0 0 rgba(255,255,255,0.06)',
@@ -49,7 +51,7 @@ export function BoardColumn({ status, items, isLast }: Props) {
       <header
         className="flex items-center gap-2.5"
         style={{
-          padding: '6px 4px 12px 4px',
+          padding: '8px 2px 12px 2px',
           margin: '0 0 10px',
           borderBottom: '1px solid var(--line-1)',
         }}
