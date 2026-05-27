@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase, ATTACHMENTS_BUCKET } from '@/lib/supabase';
 import type {
   Attachment,
+  Comment,
   Item,
   ItemType,
   Priority,
@@ -38,6 +39,10 @@ interface DbAttachment {
   id: string; item_id: string; filename: string; storage_path: string;
   size_bytes: number; mime_type: string; uploaded_by: string | null; created_at: string;
 }
+interface DbComment {
+  id: string; workspace_id: string; item_id: string; author_id: string | null;
+  body: string; mentions: string[] | null; created_at: string; updated_at: string;
+}
 
 /* ---------- Mappers ---------- */
 
@@ -62,6 +67,16 @@ const dbToAttachment = (r: DbAttachment): Attachment => ({
   sizeBytes: r.size_bytes,
   mimeType: r.mime_type,
   createdAt: r.created_at,
+});
+const dbToComment = (r: DbComment): Comment => ({
+  id: r.id,
+  workspaceId: r.workspace_id,
+  itemId: r.item_id,
+  authorId: r.author_id,
+  body: r.body,
+  mentions: r.mentions ?? [],
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
 });
 const dbToItem = (r: DbItem, atts: DbAttachment[]): Item => ({
   id: r.id,
@@ -120,6 +135,7 @@ interface StoreState {
   workspaces: Workspace[];
   projects: Project[];
   items: Item[];
+  comments: Comment[];
   members: WorkspaceMember[];
   invites: PendingInvite[];
 
@@ -162,6 +178,11 @@ interface StoreState {
   moveItem: (id: string, newStatus: Status, newIndex: number) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
 
+  // comments
+  addComment: (itemId: string, body: string, mentions: string[]) => Promise<Comment>;
+  updateComment: (id: string, body: string, mentions: string[]) => Promise<void>;
+  deleteComment: (id: string) => Promise<void>;
+
   // attachments
   addAttachment: (itemId: string, file: File) => Promise<void>;
   addAttachmentsFromBlobs: (
@@ -188,6 +209,7 @@ export const useStore = create<StoreState>((set, get) => ({
   workspaces: [],
   projects: [],
   items: [],
+  comments: [],
   members: [],
   invites: [],
   currentWorkspaceId: null,
@@ -243,6 +265,7 @@ export const useStore = create<StoreState>((set, get) => ({
             workspaces: [],
             projects: [],
             items: [],
+            comments: [],
             members: [],
             invites: [],
             currentWorkspaceId: null,
@@ -293,6 +316,15 @@ export const useStore = create<StoreState>((set, get) => ({
       });
       const items = dbItems.map((r) => dbToItem(r, attByItem.get(r.id) ?? []));
 
+      // Comments across the workspace — cheap to load up-front so the detail
+      // view renders instantly when navigated to.
+      const { data: commentsRes } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('workspace_id', currentWs.id)
+        .order('created_at', { ascending: true });
+      const comments = ((commentsRes ?? []) as DbComment[]).map(dbToComment);
+
       // Step 6: load members + invites for current workspace
       const { membersForWs, invitesForWs } = await fetchMembersAndInvites(
         currentWs.id,
@@ -306,6 +338,7 @@ export const useStore = create<StoreState>((set, get) => ({
         workspaces: workspaces.map(dbToWorkspace),
         projects: dbProjects.map(dbToProject),
         items,
+        comments,
         members: membersForWs,
         invites: invitesForWs,
         currentWorkspaceId: currentWs.id,
@@ -334,6 +367,7 @@ export const useStore = create<StoreState>((set, get) => ({
       workspaces: [],
       projects: [],
       items: [],
+      comments: [],
       members: [],
       invites: [],
       currentWorkspaceId: null,
@@ -725,6 +759,78 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  addComment: async (itemId, body, mentions) => {
+    const state = get();
+    const workspaceId = state.currentWorkspaceId;
+    const userId = state.currentUserId;
+    if (!workspaceId || !userId) throw new Error('Not signed in');
+    const trimmed = body.trim();
+    if (!trimmed) throw new Error('Comment cannot be empty');
+
+    const id = crypto.randomUUID();
+    const nowIso = new Date().toISOString();
+    const optimistic: Comment = {
+      id,
+      workspaceId,
+      itemId,
+      authorId: userId,
+      body: trimmed,
+      mentions,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    set((s) => ({ comments: [...s.comments, optimistic] }));
+
+    const { data, error } = await supabase
+      .from('comments')
+      .insert({
+        id,
+        workspace_id: workspaceId,
+        item_id: itemId,
+        author_id: userId,
+        body: trimmed,
+        mentions,
+      })
+      .select()
+      .single();
+    if (error || !data) {
+      set((s) => ({ comments: s.comments.filter((c) => c.id !== id) }));
+      throw error ?? new Error('Failed to add comment');
+    }
+    const final = dbToComment(data as DbComment);
+    set((s) => ({ comments: s.comments.map((c) => (c.id === id ? final : c)) }));
+    return final;
+  },
+
+  updateComment: async (id, body, mentions) => {
+    const prev = get().comments.find((c) => c.id === id);
+    if (!prev) return;
+    const trimmed = body.trim();
+    if (!trimmed) throw new Error('Comment cannot be empty');
+    const nowIso = new Date().toISOString();
+    const merged: Comment = { ...prev, body: trimmed, mentions, updatedAt: nowIso };
+    set((s) => ({ comments: s.comments.map((c) => (c.id === id ? merged : c)) }));
+    const { error } = await supabase
+      .from('comments')
+      .update({ body: trimmed, mentions })
+      .eq('id', id);
+    if (error) {
+      set((s) => ({ comments: s.comments.map((c) => (c.id === id ? prev : c)) }));
+      throw error;
+    }
+  },
+
+  deleteComment: async (id) => {
+    const prev = get().comments.find((c) => c.id === id);
+    if (!prev) return;
+    set((s) => ({ comments: s.comments.filter((c) => c.id !== id) }));
+    const { error } = await supabase.from('comments').delete().eq('id', id);
+    if (error) {
+      set((s) => ({ comments: [...s.comments, prev] }));
+      throw error;
+    }
+  },
+
   addAttachment: async (itemId, file) => {
     await get().addAttachmentsFromBlobs(itemId, [{ blob: file, filename: file.name }]);
   },
@@ -1092,6 +1198,33 @@ function startRealtime(
               : i,
           ),
         }));
+      },
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'comments',
+        filter: `workspace_id=eq.${workspaceId}`,
+      },
+      (payload) => {
+        if (payload.eventType === 'DELETE') {
+          const id = (payload.old as { id?: string }).id;
+          if (!id) return;
+          set((s) => ({ comments: s.comments.filter((c) => c.id !== id) }));
+          return;
+        }
+        const comment = dbToComment(payload.new as DbComment);
+        set((s) => {
+          const exists = s.comments.find((c) => c.id === comment.id);
+          if (exists) {
+            return {
+              comments: s.comments.map((c) => (c.id === comment.id ? comment : c)),
+            };
+          }
+          return { comments: [...s.comments, comment] };
+        });
       },
     )
     .subscribe();
