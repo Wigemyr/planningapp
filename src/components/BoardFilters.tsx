@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '@/store/useStore';
-import { useFilters } from '@/store/useFilters';
+import {
+  useFilters,
+  CREATED_WITHIN_OPTIONS,
+  CREATED_WITHIN_LABEL,
+  type CreatedWithin,
+} from '@/store/useFilters';
 import { PRIORITIES, ITEM_TYPES, type Priority, type ItemType } from '@/lib/types';
 import { PRIORITY_LABEL_FULL } from '@/lib/constants';
 import { Avatar } from './Avatar';
@@ -10,13 +15,15 @@ import {
   Tag,
   Users,
   LayoutGrid,
+  Clock,
   X,
   ChevronDown,
 } from './icons';
 
 /**
  * Top-of-board filter bar. State lives in `useFilters` — transient (not URL-synced).
- * "Just me" is a quick toggle that sets/unsets the magic 'me' assignee marker.
+ * All chips share the same height + padding so the row reads as a single control
+ * strip.
  */
 export function BoardFilters() {
   const search = useFilters((s) => s.search);
@@ -25,16 +32,17 @@ export function BoardFilters() {
   const priorities = useFilters((s) => s.priorities);
   const types = useFilters((s) => s.types);
   const labels = useFilters((s) => s.labels);
+  const createdWithin = useFilters((s) => s.createdWithin);
   const toggleAssignee = useFilters((s) => s.toggleAssignee);
   const togglePriority = useFilters((s) => s.togglePriority);
   const toggleType = useFilters((s) => s.toggleType);
   const toggleLabel = useFilters((s) => s.toggleLabel);
+  const setCreatedWithin = useFilters((s) => s.setCreatedWithin);
   const clearAll = useFilters((s) => s.clearAll);
   const hasActive = useFilters((s) => s.hasActive());
 
   const members = useStore((s) => s.members);
   const items = useStore((s) => s.items);
-  const currentUserId = useStore((s) => s.currentUserId);
 
   // Distinct labels seen on any item — for the Labels filter dropdown.
   const allLabels = useMemo(() => {
@@ -43,16 +51,12 @@ export function BoardFilters() {
     return Array.from(set).sort();
   }, [items]);
 
-  const meActive = assignees.includes('me');
-
   return (
-    <div
-      className="border-b border-line flex items-center gap-2 px-4 py-2.5 flex-wrap"
-    >
-      {/* Search */}
-      <div className="relative">
+    <div className="border-b border-line flex items-center gap-2 px-4 py-2.5 flex-wrap">
+      {/* Search — fixed 28px tall to match the filter chips. */}
+      <div className="relative h-7">
         <Search
-          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-subtle"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-ink-subtle pointer-events-none"
           strokeWidth={1.75}
         />
         <input
@@ -60,24 +64,20 @@ export function BoardFilters() {
           value={search}
           placeholder="Filter items…"
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-8 pr-3 py-1.5 w-[220px] text-[12px] rounded-md border border-line bg-panel text-ink placeholder:text-ink-subtle focus:outline-none focus:border-line-2"
+          className="h-7 pl-8 pr-7 w-[220px] text-[12px] rounded-md border border-line bg-panel text-ink placeholder:text-ink-subtle focus:outline-none focus:border-line-2"
         />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            aria-label="Clear search"
+            title="Clear search"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-ink-subtle hover:text-ink-2 hover:bg-white/[0.06] transition-colors"
+          >
+            <X className="w-3 h-3" strokeWidth={2} />
+          </button>
+        )}
       </div>
-
-      <div className="w-px h-5 bg-line" />
-
-      {/* Just-me quick toggle */}
-      <FilterChip
-        active={meActive}
-        onClear={meActive ? () => toggleAssignee('me') : undefined}
-        onClick={() => toggleAssignee('me')}
-      >
-        <Avatar
-          user={members.find((m) => m.user.id === currentUserId)?.user}
-          size={16}
-        />
-        <span>Assigned to me</span>
-      </FilterChip>
 
       {/* Priority */}
       <FilterMenu
@@ -131,7 +131,7 @@ export function BoardFilters() {
       <FilterMenu
         icon={<Users className="w-3.5 h-3.5" strokeWidth={1.75} />}
         label="Assignee"
-        activeCount={assignees.filter((a) => a !== 'me').length}
+        activeCount={assignees.length}
         renderItems={() => (
           <>
             {members.length === 0 ? (
@@ -151,6 +151,32 @@ export function BoardFilters() {
                 );
               })
             )}
+          </>
+        )}
+      />
+
+      {/* Created within */}
+      <FilterMenu
+        icon={<Clock className="w-3.5 h-3.5" strokeWidth={1.75} />}
+        label="Created"
+        activeCount={createdWithin ? 1 : 0}
+        renderItems={() => (
+          <>
+            <MenuRadioItem
+              checked={createdWithin === null}
+              onClick={() => setCreatedWithin(null)}
+            >
+              <span className="text-[12.5px]">Any time</span>
+            </MenuRadioItem>
+            {CREATED_WITHIN_OPTIONS.map((opt) => (
+              <MenuRadioItem
+                key={opt}
+                checked={createdWithin === opt}
+                onClick={() => setCreatedWithin(opt as CreatedWithin)}
+              >
+                <span className="text-[12.5px]">{CREATED_WITHIN_LABEL[opt]}</span>
+              </MenuRadioItem>
+            ))}
           </>
         )}
       />
@@ -186,7 +212,7 @@ export function BoardFilters() {
         <button
           type="button"
           onClick={clearAll}
-          className="text-[11.5px] text-ink-muted hover:text-ink-2 px-2 py-1 rounded transition-colors"
+          className="h-7 text-[11.5px] text-ink-muted hover:text-ink-2 px-2 rounded transition-colors"
         >
           Clear all
         </button>
@@ -196,39 +222,6 @@ export function BoardFilters() {
 }
 
 /* ---------- Building blocks ---------- */
-
-interface FilterChipProps {
-  active?: boolean;
-  onClick: () => void;
-  onClear?: () => void;
-  children: React.ReactNode;
-}
-
-function FilterChip({ active, onClick, onClear, children }: FilterChipProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      data-active={active ? 'true' : undefined}
-      className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] rounded-md border"
-    >
-      {children}
-      {onClear && (
-        <span
-          role="button"
-          tabIndex={0}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClear();
-          }}
-          className="opacity-70 hover:opacity-100 ml-0.5"
-        >
-          <X className="w-3 h-3" strokeWidth={2} />
-        </span>
-      )}
-    </button>
-  );
-}
 
 interface FilterMenuProps {
   icon: React.ReactNode;
@@ -257,7 +250,7 @@ function FilterMenu({ icon, label, activeCount, renderItems }: FilterMenuProps) 
         type="button"
         onClick={() => setOpen((o) => !o)}
         data-active={active ? 'true' : undefined}
-        className="filter-chip inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] rounded-md border"
+        className="filter-chip inline-flex items-center gap-1.5 h-7 px-2.5 text-[12px] rounded-md border"
       >
         {icon}
         <span>{label}</span>
@@ -303,6 +296,31 @@ function MenuCheckItem({ checked, onClick, children }: MenuCheckItemProps) {
         readOnly
         tabIndex={-1}
       />
+      {children}
+    </button>
+  );
+}
+
+function MenuRadioItem({ checked, onClick, children }: MenuCheckItemProps) {
+  return (
+    <button
+      type="button"
+      role="menuitemradio"
+      aria-checked={checked}
+      onClick={onClick}
+      className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-left hover:bg-white/[0.05] transition-colors"
+    >
+      <span
+        className="w-3 h-3 rounded-full border border-line-2 flex items-center justify-center shrink-0"
+        style={{ background: checked ? 'var(--accent)' : 'transparent' }}
+      >
+        {checked && (
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: 'white' }}
+          />
+        )}
+      </span>
       {children}
     </button>
   );

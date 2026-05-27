@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useStore } from '@/store/useStore';
+import { useUi } from '@/store/useUi';
 import type { Comment, User } from '@/lib/types';
 import { Avatar } from './Avatar';
 import { RichTextEditor, stripTags } from './RichTextEditor';
@@ -21,6 +22,7 @@ export function CommentSection({ itemId }: { itemId: string }) {
   const addComment = useStore((s) => s.addComment);
   const updateComment = useStore((s) => s.updateComment);
   const deleteComment = useStore((s) => s.deleteComment);
+  const openConfirm = useUi((s) => s.openConfirm);
 
   const [draft, setDraft] = useState('');
   // Forces a remount of the RichTextEditor after a successful post so its
@@ -210,7 +212,20 @@ export function CommentSection({ itemId }: { itemId: string }) {
                     {canDelete(c) && !editing && (
                       <button
                         type="button"
-                        onClick={() => deleteComment(c.id)}
+                        onClick={() =>
+                          openConfirm({
+                            title: 'Delete this comment?',
+                            description: (
+                              <>
+                                This will permanently remove the comment. This
+                                cannot be undone.
+                              </>
+                            ),
+                            confirmLabel: 'Delete comment',
+                            danger: true,
+                            onConfirm: () => deleteComment(c.id),
+                          })
+                        }
                         className="text-[11.5px] flex items-center gap-1 px-1.5 py-0.5 rounded text-ink-muted hover:text-[#ef4444] hover:bg-[rgba(239,68,68,0.06)] transition-colors"
                         aria-label="Delete comment"
                         title="Delete"
