@@ -72,11 +72,13 @@
   [class~="cursor-move"] {
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.85'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23f5f6fa'/></svg>") 3 2, pointer !important;
   }
-  /* Text-input fields keep the I-beam so editing feels normal. */
+  /* Modern I-beam for text fields — slim vertical bar with rounded caps, light
+   * fill on a dark drop-shadow, matches the arrow cursor's visual language.
+   * Hot-spot centred at (11, 11). Falls back to OS `text` if the URL fails. */
   input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
   textarea,
   [contenteditable="true"] {
-    cursor: text;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M11 3 v16' stroke='%2310101a' stroke-width='3.6' stroke-linecap='round' fill='none' opacity='0.65'/><path d='M11 3 v16' stroke='%23f5f6fa' stroke-width='1.6' stroke-linecap='round' fill='none'/></svg>") 11 11, text !important;
   }
   /* Focus ring — warm-neutral thin outline. Used to be 2px solid var(--accent)
    * (blue) which clashed with the Slate Paper palette and read as a "click
