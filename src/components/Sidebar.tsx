@@ -26,13 +26,14 @@ import {
   ChevronDown,
   Settings,
   LogOut,
-  Folder,
   Layers,
   GripVertical,
   Trash2,
   PanelLeftClose,
   PanelLeftOpen,
+  Palette,
 } from './icons';
+import { getProjectIcon } from '@/lib/projectAppearance';
 import type { Project } from '@/lib/types';
 
 export function Sidebar() {
@@ -56,6 +57,7 @@ export function Sidebar() {
   const deleteProject = useStore((s) => s.deleteProject);
   const openConfirm = useUi((s) => s.openConfirm);
   const openContextMenu = useUi((s) => s.openContextMenu);
+  const openProjectAppearance = useUi((s) => s.openProjectAppearance);
   const navigate = useNavigate();
 
   const isOwner =
@@ -157,6 +159,11 @@ export function Sidebar() {
   function openProjectContextMenu(e: React.MouseEvent, p: Project) {
     e.preventDefault();
     openContextMenu(e.clientX, e.clientY, [
+      {
+        label: 'Customize…',
+        icon: <Palette className="w-3.5 h-3.5" strokeWidth={1.75} />,
+        onClick: () => openProjectAppearance(p.id),
+      },
       {
         label: 'Delete project',
         icon: <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />,
@@ -533,15 +540,20 @@ function SortableProjectRow({ project, active, count, collapsed, onSelect, onCon
             <GripVertical className="w-3 h-3" strokeWidth={2} />
           </button>
         )}
-        <Folder
-          className="w-4 h-4 shrink-0"
-          style={{
-            color: project.color,
-            fill: project.color,
-            fillOpacity: 0.18,
-          }}
-          strokeWidth={1.5}
-        />
+        {(() => {
+          const Icon = getProjectIcon(project.icon);
+          return (
+            <Icon
+              className="w-4 h-4 shrink-0"
+              style={{
+                color: project.color,
+                fill: project.color,
+                fillOpacity: 0.18,
+              }}
+              strokeWidth={1.5}
+            />
+          );
+        })()}
         {!collapsed && (
           <span className="flex-1 truncate text-left">{project.name}</span>
         )}
