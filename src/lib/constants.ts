@@ -94,11 +94,21 @@ export const TYPE_CONFIG: Record<ItemType, TypeConfig> = {
   },
 };
 
+/** Compact label for pills (cards, detail meta row). Stays short on purpose. */
 export const PRIORITY_LABEL: Record<string, string> = {
   p0: 'P0',
   p1: 'P1',
   p2: 'P2',
   p3: 'P3',
+};
+
+/** Full label for menus and pickers where you have room to spell out the
+ * severity ("P0 alone could be misread as the lowest level). */
+export const PRIORITY_LABEL_FULL: Record<string, string> = {
+  p0: 'P0 — Critical',
+  p1: 'P1 — High',
+  p2: 'P2 — Medium',
+  p3: 'P3 — Low',
 };
 
 /** Priority colour ramp — hot to cool, so urgency reads at a glance.
