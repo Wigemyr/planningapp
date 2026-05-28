@@ -257,14 +257,16 @@
     border-color: var(--line-2);
     color: var(--ink-1);
   }
+  /* Active state stays neutral grey — the count badge already conveys the
+   * "this filter is engaged" signal without needing a colour shift. */
   .filter-chip[data-active="true"] {
-    background: var(--accent-soft);
-    border-color: rgba(91, 141, 239, 0.32);
-    color: #c2c5f5;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--line-3);
+    color: var(--ink-1);
   }
   .filter-chip[data-active="true"]:hover {
-    background: rgba(91, 141, 239, 0.16);
-    border-color: rgba(91, 141, 239, 0.48);
+    background: rgba(255, 255, 255, 0.10);
+    border-color: var(--line-3);
   }
 
   /* shadcn-ish button — bordered, neutral surface, used in sidebar header */
@@ -322,30 +324,6 @@
   .rich-editor u { text-decoration: underline; text-decoration-color: var(--ink-3); }
   .rich-editor s, .rich-editor strike { text-decoration: line-through; }
 
-  /* Custom checkbox — shadcn-style */
-  .check {
-    appearance: none;
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 4px;
-    border: 1px solid var(--line-2);
-    background: transparent;
-    cursor: pointer;
-    flex-shrink: 0;
-    position: relative;
-    transition: background 0.12s, border-color 0.12s;
-  }
-  .check:hover { border-color: var(--line-3); }
-  .check:checked { background: var(--ink-1); border-color: var(--ink-1); }
-  .check:checked::after {
-    content: '';
-    position: absolute;
-    left: 3px; top: 0px;
-    width: 4px; height: 8px;
-    border: solid var(--bg);
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

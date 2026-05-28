@@ -18,6 +18,7 @@ import {
   Clock,
   X,
   ChevronDown,
+  Check,
 } from './icons';
 
 /**
@@ -281,6 +282,9 @@ interface MenuCheckItemProps {
 }
 
 function MenuCheckItem({ checked, onClick, children }: MenuCheckItemProps) {
+  // Fully custom box — no native <input type="checkbox"> so browsers can't
+  // sneak their default blue accent through. Subtle grey when checked,
+  // matches the Slate Paper palette.
   return (
     <button
       type="button"
@@ -289,13 +293,22 @@ function MenuCheckItem({ checked, onClick, children }: MenuCheckItemProps) {
       onClick={onClick}
       className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-left hover:bg-white/[0.05] transition-colors"
     >
-      <input
-        type="checkbox"
-        className="check"
-        checked={checked}
-        readOnly
-        tabIndex={-1}
-      />
+      <span
+        aria-hidden="true"
+        className="w-[14px] h-[14px] rounded-[3px] flex items-center justify-center shrink-0 transition-colors"
+        style={{
+          background: checked ? 'var(--ink-2)' : 'transparent',
+          border: `1px solid ${checked ? 'var(--ink-2)' : 'var(--line-2)'}`,
+        }}
+      >
+        {checked && (
+          <Check
+            className="w-[10px] h-[10px]"
+            style={{ color: 'var(--bg)' }}
+            strokeWidth={3}
+          />
+        )}
+      </span>
       {children}
     </button>
   );
@@ -311,13 +324,17 @@ function MenuRadioItem({ checked, onClick, children }: MenuCheckItemProps) {
       className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded text-left hover:bg-white/[0.05] transition-colors"
     >
       <span
-        className="w-3 h-3 rounded-full border border-line-2 flex items-center justify-center shrink-0"
-        style={{ background: checked ? 'var(--accent)' : 'transparent' }}
+        aria-hidden="true"
+        className="w-[14px] h-[14px] rounded-full flex items-center justify-center shrink-0 transition-colors"
+        style={{
+          background: 'transparent',
+          border: `1px solid ${checked ? 'var(--ink-2)' : 'var(--line-2)'}`,
+        }}
       >
         {checked && (
           <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{ background: 'white' }}
+            className="w-[6px] h-[6px] rounded-full"
+            style={{ background: 'var(--ink-2)' }}
           />
         )}
       </span>
