@@ -43,11 +43,12 @@
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
-    /* Custom cursor: clean arrow with a dark drop-path beneath a light fill, no
-     * heavy stroke. Bumped to 22x22 — 20 was still tiny next to the rest of
-     * the UI. Hot-spot at (3, 2). !important so Tailwind cursor utilities don't
-     * silently revert this to the OS default. */
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.7'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23b6b8bf'/></svg>") 3 2, default !important;
+    /* Custom cursor: clean arrow with a dark drop-path beneath a light fill,
+     * no heavy stroke. Display size 28x28 (viewBox kept at 22) — the SVG
+     * scales up uniformly so the arrow reads cleanly without redrawing the
+     * path. Hot-spot scaled to (4, 3). !important so Tailwind cursor
+     * utilities don't silently revert this to the OS default. */
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.7'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23b6b8bf'/></svg>") 4 3, default !important;
   }
   /* Clickables: same shape, brighter fill so the cursor visibly changes when you
    * move from page bg onto a button (no OS hand swap, no chunky outline).
@@ -70,7 +71,7 @@
   [class~="cursor-pointer"],
   [class~="cursor-grab"],
   [class~="cursor-move"] {
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.85'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23f5f6fa'/></svg>") 3 2, pointer !important;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.85'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23f5f6fa'/></svg>") 4 3, pointer !important;
   }
   /* Modern I-beam for text fields — slim vertical bar with rounded caps, light
    * fill on a dark drop-shadow, matches the arrow cursor's visual language.
