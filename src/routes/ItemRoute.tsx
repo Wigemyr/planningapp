@@ -16,6 +16,7 @@ import { ImageLightbox } from '@/components/ImageLightbox';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { CommentSection } from '@/components/CommentSection';
 import { NotificationBell } from '@/components/NotificationBell';
+import { TagInput } from '@/components/TagInput';
 import { useUi } from '@/store/useUi';
 import { formatAbsolute, formatRelative, formatBytes } from '@/lib/format';
 import {
@@ -38,6 +39,7 @@ type ItemDraft = {
   type: ItemType;
   projectId: string;
   priority: Priority;
+  labels: string[];
 };
 
 function getDraft(item: Item): ItemDraft {
@@ -48,7 +50,15 @@ function getDraft(item: Item): ItemDraft {
     type: item.type,
     projectId: item.projectId,
     priority: item.priority,
+    labels: item.labels,
   };
+}
+
+function labelsDiffer(a: string[], b: string[]) {
+  if (a.length !== b.length) return true;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.some((v, i) => v !== sb[i]);
 }
 
 function draftsDiffer(a: ItemDraft, b: ItemDraft) {
@@ -58,7 +68,8 @@ function draftsDiffer(a: ItemDraft, b: ItemDraft) {
     a.status !== b.status ||
     a.type !== b.type ||
     a.projectId !== b.projectId ||
-    a.priority !== b.priority
+    a.priority !== b.priority ||
+    labelsDiffer(a.labels, b.labels)
   );
 }
 
@@ -124,6 +135,14 @@ export default function ItemRoute() {
     if (!item || !draft) return false;
     return draftsDiffer(draft, getDraft(item));
   }, [draft, item]);
+
+  // Distinct labels across every item in the workspace — feeds the TagInput
+  // autocomplete so users converge on the same tag spelling.
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((it) => it.labels.forEach((l) => set.add(l)));
+    return Array.from(set);
+  }, [items]);
 
   // ----- Save / discard -----
   async function save() {
@@ -699,24 +718,13 @@ export default function ItemRoute() {
                 </TintedSelect>
               </PropertyRow>
 
-              {item.labels.length > 0 && (
-                <PropertyRow label="Labels">
-                  <div className="prop-control bg-panel-2 border-line flex flex-wrap gap-1 items-center cursor-default">
-                    {item.labels.map((l) => (
-                      <span
-                        key={l}
-                        className="pill"
-                        style={{
-                          background: 'rgba(138,143,153,0.14)',
-                          color: '#c9cbd2',
-                        }}
-                      >
-                        {l}
-                      </span>
-                    ))}
-                  </div>
-                </PropertyRow>
-              )}
+              <PropertyRow label="Tags">
+                <TagInput
+                  value={draft.labels}
+                  onChange={(next) => setField('labels', next)}
+                  allLabels={allLabels}
+                />
+              </PropertyRow>
             </div>
 
             <div className="my-5 border-t border-line" />
