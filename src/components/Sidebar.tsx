@@ -104,10 +104,10 @@ export function Sidebar() {
 
   function handleDeleteProject(p: Project) {
     openConfirm({
-      title: `Delete "${p.name}"?`,
+      title: `Move "${p.name}" to trash?`,
       description:
-        'This will permanently delete the project and all of its items, comments, and attachments. This action cannot be undone.',
-      confirmLabel: 'Delete project',
+        'The project and its items move to the trash. You can restore them anytime from Account → Trash.',
+      confirmLabel: 'Move to trash',
       danger: true,
       onConfirm: () => deleteProject(p.id),
     });
@@ -118,15 +118,15 @@ export function Sidebar() {
     const target = workspaces.find((w) => w.id === id);
     if (!target) return;
     openConfirm({
-      title: `Delete workspace "${target.name}"?`,
+      title: `Move workspace "${target.name}" to trash?`,
       description: (
         <>
-          This permanently deletes the workspace along with{' '}
-          <strong className="text-ink">all of its projects, items, attachments, and member access</strong>.
-          {' '}Everyone in this workspace will lose access immediately. This action cannot be undone.
+          The workspace, its projects, items, and attachments move to the trash.
+          {' '}<strong className="text-ink">Other members will lose access until you restore it</strong>.
+          {' '}You can restore from Account → Trash.
         </>
       ),
-      confirmLabel: 'Delete workspace',
+      confirmLabel: 'Move to trash',
       danger: true,
       onConfirm: async () => {
         try {
@@ -148,7 +148,7 @@ export function Sidebar() {
     e.stopPropagation();
     openContextMenu(e.clientX, e.clientY, [
       {
-        label: 'Delete workspace',
+        label: 'Move to trash',
         icon: <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />,
         danger: true,
         onClick: () => handleDeleteWorkspaceById(id),
@@ -165,7 +165,7 @@ export function Sidebar() {
         onClick: () => openProjectAppearance(p.id),
       },
       {
-        label: 'Delete project',
+        label: 'Move to trash',
         icon: <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />,
         danger: true,
         onClick: () => handleDeleteProject(p),
@@ -307,11 +307,11 @@ export function Sidebar() {
                 className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-[rgba(198,110,107,0.12)] hover:text-[#d68a86] flex items-center gap-2 transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
-                Delete current workspace
+                Move current to trash
               </button>
             )}
             <div className="px-3 py-1 text-[10.5px] text-ink-subtle">
-              Right-click any workspace to delete it.
+              Right-click any workspace to move it to trash.
             </div>
           </div>
         )}
@@ -461,6 +461,18 @@ export function Sidebar() {
                 Members & invites
               </button>
             )}
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setAccountOpen(false);
+                navigate('/trash');
+              }}
+              className="w-full px-3 py-1.5 text-left text-[12.5px] text-ink-2 hover:bg-white/[0.04] hover:text-ink flex items-center gap-2 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" strokeWidth={1.75} />
+              Trash
+            </button>
             <button
               type="button"
               role="menuitem"

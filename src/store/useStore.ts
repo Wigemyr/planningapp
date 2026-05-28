@@ -26,8 +26,8 @@ const CURRENT_WS_KEY = 'planning.currentWorkspaceId';
 /* ---------- DB row types (matching the SQL migration) ---------- */
 
 interface DbProfile { id: string; email: string; name: string; initials: string; color: string; created_at: string; }
-interface DbWorkspace { id: string; name: string; initials: string; owner_id: string; created_at: string; }
-interface DbProject { id: string; workspace_id: string; name: string; color: string; icon: string | null; short_prefix: string; position: number | null; created_at: string; }
+interface DbWorkspace { id: string; name: string; initials: string; owner_id: string; created_at: string; deleted_at: string | null; }
+interface DbProject { id: string; workspace_id: string; name: string; color: string; icon: string | null; short_prefix: string; position: number | null; created_at: string; deleted_at: string | null; }
 interface DbItem {
   id: string; workspace_id: string; project_id: string; short_id: string;
   title: string; description: string;
@@ -57,7 +57,7 @@ const dbToUser = (r: DbProfile): User => ({
   id: r.id, name: r.name, initials: r.initials, email: r.email, color: r.color,
 });
 const dbToWorkspace = (r: DbWorkspace): Workspace => ({
-  id: r.id, name: r.name, initials: r.initials,
+  id: r.id, name: r.name, initials: r.initials, deletedAt: r.deleted_at,
 });
 const dbToProject = (r: DbProject): Project => ({
   id: r.id,
@@ -67,6 +67,7 @@ const dbToProject = (r: DbProject): Project => ({
   icon: r.icon ?? 'folder',
   shortPrefix: r.short_prefix,
   position: r.position ?? 0,
+  deletedAt: r.deleted_at,
 });
 const dbToAttachment = (r: DbAttachment): Attachment => ({
   id: r.id,
@@ -185,13 +186,29 @@ interface StoreState {
 
   // Workspaces
   createWorkspace: (name: string) => Promise<Workspace>;
+  /** Soft-delete: move to trash (sets deleted_at). */
   deleteWorkspace: (id: string) => Promise<void>;
+  /** Restore a soft-deleted workspace. */
+  restoreWorkspace: (id: string) => Promise<void>;
+  /** Permanently delete from the DB (also cascades to projects/items). */
+  purgeWorkspace: (id: string) => Promise<void>;
 
   // Projects
   createProject: (input: { name: string; color: string; shortPrefix: string; icon?: string }) => Promise<Project>;
   updateProject: (id: string, patch: { name?: string; color?: string; icon?: string }) => Promise<void>;
+  /** Soft-delete: move to trash (sets deleted_at). */
   deleteProject: (id: string) => Promise<void>;
+  /** Restore a soft-deleted project. */
+  restoreProject: (id: string) => Promise<void>;
+  /** Permanently delete from the DB (also cascades to items/comments/attachments). */
+  purgeProject: (id: string) => Promise<void>;
   reorderProjects: (orderedIds: string[]) => Promise<void>;
+
+  /** Load the trash bin (workspaces + projects with deleted_at not null). */
+  loadTrash: () => Promise<{
+    workspaces: Workspace[];
+    projects: Project[];
+  }>;
 
   // CRUD (async, optimistic)
   createItem: (input: NewItemInput) => Promise<Item>;
@@ -278,7 +295,9 @@ export const useStore = create<StoreState>((set, get) => ({
       type MemberWithWs = { workspace_id: string; role: string; workspaces: DbWorkspace | null };
       let workspaces: DbWorkspace[] = ((memberRes ?? []) as unknown as MemberWithWs[])
         .map((m) => m.workspaces)
-        .filter((w): w is DbWorkspace => !!w);
+        .filter((w): w is DbWorkspace => !!w)
+        // Hide soft-deleted workspaces from the normal switcher — they appear in /trash.
+        .filter((w) => w.deleted_at === null);
 
       // Step 4: if no workspace, only auto-create if this is the very first
       // user in the whole system. Otherwise show "pending invite" screen.
@@ -325,7 +344,11 @@ export const useStore = create<StoreState>((set, get) => ({
       const currentWs = workspaces.find((w) => w.id === persistedWsId) ?? workspaces[0];
 
       const [{ data: projectsRes }, { data: itemsRes }] = await Promise.all([
-        supabase.from('projects').select('*').eq('workspace_id', currentWs.id),
+        supabase
+          .from('projects')
+          .select('*')
+          .eq('workspace_id', currentWs.id)
+          .is('deleted_at', null),
         supabase.from('items').select('*').eq('workspace_id', currentWs.id),
       ]);
       const dbProjects = (projectsRes ?? []) as DbProject[];
@@ -462,16 +485,22 @@ export const useStore = create<StoreState>((set, get) => ({
     const target = state.workspaces.find((w) => w.id === id);
     if (!target) return;
 
-    const { error } = await supabase.from('workspaces').delete().eq('id', id);
+    // Soft-delete: stamp deleted_at instead of removing the row. Restorable
+    // from /trash. RLS for UPDATE already requires owner-only.
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from('workspaces')
+      .update({ deleted_at: nowIso })
+      .eq('id', id);
     if (error) throw error;
 
-    // Optimistic local update
+    // Optimistic local update — hide from the switcher.
     const remaining = state.workspaces.filter((w) => w.id !== id);
     set({ workspaces: remaining });
 
-    // If we just nuked the current workspace, jump into another one (or clear
-    // state entirely if it was the last). setCurrentWorkspace re-bootstraps,
-    // which also rebinds realtime.
+    // If we just trashed the current workspace, jump into another one (or
+    // clear state entirely if it was the last). setCurrentWorkspace
+    // re-bootstraps, which also rebinds realtime.
     if (state.currentWorkspaceId === id) {
       if (remaining.length > 0) {
         await get().setCurrentWorkspace(remaining[0].id);
@@ -485,6 +514,23 @@ export const useStore = create<StoreState>((set, get) => ({
         await get().bootstrap();
       }
     }
+  },
+
+  restoreWorkspace: async (id) => {
+    const { error } = await supabase
+      .from('workspaces')
+      .update({ deleted_at: null })
+      .eq('id', id);
+    if (error) throw error;
+    // Re-bootstrap so the restored workspace shows up in the switcher with
+    // its projects/items loaded fresh.
+    await get().teardown();
+    await get().bootstrap();
+  },
+
+  purgeWorkspace: async (id) => {
+    const { error } = await supabase.from('workspaces').delete().eq('id', id);
+    if (error) throw error;
   },
 
   createProject: async (input) => {
@@ -504,6 +550,7 @@ export const useStore = create<StoreState>((set, get) => ({
       icon: input.icon || 'folder',
       shortPrefix: (input.shortPrefix || 'PRJ').toUpperCase().slice(0, 6),
       position: nextPosition,
+      deletedAt: null,
     };
     set((s) => ({ projects: [...s.projects, optimistic] }));
     const { data, error } = await supabase
@@ -578,16 +625,39 @@ export const useStore = create<StoreState>((set, get) => ({
   deleteProject: async (id) => {
     const prev = get().projects.find((p) => p.id === id);
     if (!prev) return;
+    // Optimistic: hide from sidebar + drop its items from the visible board.
+    // Items aren't soft-deleted — they're hidden because their project is.
+    // Restoring the project brings them back.
     set((s) => ({
       projects: s.projects.filter((p) => p.id !== id),
       items: s.items.filter((i) => i.projectId !== id),
       currentProjectId: s.currentProjectId === id ? null : s.currentProjectId,
     }));
-    const { error } = await supabase.from('projects').delete().eq('id', id);
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from('projects')
+      .update({ deleted_at: nowIso })
+      .eq('id', id);
     if (error) {
       set((s) => ({ projects: [...s.projects, prev] }));
       throw error;
     }
+  },
+
+  restoreProject: async (id) => {
+    const { error } = await supabase
+      .from('projects')
+      .update({ deleted_at: null })
+      .eq('id', id);
+    if (error) throw error;
+    // Re-bootstrap so the restored project's items come back into the board.
+    await get().teardown();
+    await get().bootstrap();
+  },
+
+  purgeProject: async (id) => {
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (error) throw error;
   },
 
   createItem: async (input) => {
@@ -1141,6 +1211,33 @@ export const useStore = create<StoreState>((set, get) => ({
     const { membersForWs, invitesForWs } = await fetchMembersAndInvites(wsId, users);
     set({ members: membersForWs, invites: invitesForWs });
   },
+
+  loadTrash: async () => {
+    const userId = get().currentUserId;
+    if (!userId) return { workspaces: [], projects: [] };
+
+    // Workspaces I'm a member of, but soft-deleted.
+    const { data: memberRes } = await supabase
+      .from('workspace_members')
+      .select('workspaces(*)')
+      .eq('user_id', userId);
+    type MemberWithWs = { workspaces: DbWorkspace | null };
+    const trashedWorkspaces = ((memberRes ?? []) as unknown as MemberWithWs[])
+      .map((m) => m.workspaces)
+      .filter((w): w is DbWorkspace => !!w && w.deleted_at !== null)
+      .map(dbToWorkspace);
+
+    // Trashed projects across every workspace I'm a member of (current view's
+    // workspace and others). The owner-of-deleted-workspace case still works
+    // because the workspace row exists; RLS uses workspace membership.
+    const { data: projRes } = await supabase
+      .from('projects')
+      .select('*')
+      .not('deleted_at', 'is', null);
+    const trashedProjects = ((projRes ?? []) as DbProject[]).map(dbToProject);
+
+    return { workspaces: trashedWorkspaces, projects: trashedProjects };
+  },
 }));
 
 async function fetchMembersAndInvites(
@@ -1285,6 +1382,11 @@ function startRealtime(
           return;
         }
         const project = dbToProject(payload.new as DbProject);
+        // Soft-deleted rows leave the visible set; restored rows rejoin it.
+        if (project.deletedAt !== null) {
+          set((s) => ({ projects: s.projects.filter((p) => p.id !== project.id) }));
+          return;
+        }
         set((s) => {
           const exists = s.projects.find((p) => p.id === project.id);
           if (exists)

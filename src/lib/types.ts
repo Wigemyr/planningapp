@@ -23,6 +23,8 @@ export interface Workspace {
   id: string;
   name: string;
   initials: string;
+  /** When set, this workspace is soft-deleted and only visible in the trash. */
+  deletedAt: string | null;
 }
 
 export interface Project {
@@ -34,6 +36,8 @@ export interface Project {
   icon: string;
   shortPrefix: string; // e.g. "ACM" for short IDs like ACM-119
   position: number;
+  /** When set, this project is soft-deleted and only visible in the trash. */
+  deletedAt: string | null;
 }
 
 export interface Attachment {
