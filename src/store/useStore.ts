@@ -717,6 +717,7 @@ export const useStore = create<StoreState>((set, get) => ({
       labels: input.labels ?? [],
       assigneeId: userId,
       attachments: [],
+      dependsOn: [],
       createdAt: nowIso,
       updatedAt: nowIso,
       startedAt: targetStatus === 'active' ? nowIso : null,
