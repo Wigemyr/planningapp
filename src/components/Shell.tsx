@@ -41,21 +41,28 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0 relative">
+      <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
         {children}
         {/* Agent toggle button — bottom-right of main area */}
         {!agentChatOpen && (
           <button
             onClick={toggleAgentChat}
-            title="Open planning agent"
-            className="absolute bottom-5 right-5 flex items-center gap-2 px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium shadow-lg transition-colors z-10"
+            title="Open planning agent (A)"
+            className="absolute bottom-5 right-5 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium shadow-lg shadow-violet-900/40 transition-colors z-10"
           >
             <Bot className="w-4 h-4" />
             Agent
           </button>
         )}
       </main>
-      {agentChatOpen && <AgentChat onClose={closeAgentChat} />}
+      {/* Agent panel — rendered outside <main> so it doesn't compress the board */}
+      <div
+        className={`flex flex-col shrink-0 transition-all duration-200 ease-in-out overflow-hidden ${
+          agentChatOpen ? 'w-[19rem]' : 'w-0'
+        }`}
+      >
+        {agentChatOpen && <AgentChat onClose={closeAgentChat} />}
+      </div>
       <NewItemDialog />
       <NewProjectDialog
         open={newProjectOpen}
