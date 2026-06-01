@@ -5,7 +5,7 @@ import { NewProjectDialog } from './NewProjectDialog';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ContextMenu } from './ContextMenu';
 import { ProjectAppearanceDialog } from './ProjectAppearanceDialog';
-import { AgentChat } from './AgentChat/AgentChat';
+import { AgentOverlay } from './AgentChat/AgentOverlay';
 import { useUi } from '@/store/useUi';
 import { useStore } from '@/store/useStore';
 import { Bot } from './icons';
@@ -43,11 +43,10 @@ export default function Shell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
         {children}
-        {/* Agent toggle button — bottom-right of main area */}
         {!agentChatOpen && (
           <button
             onClick={toggleAgentChat}
-            title="Open planning agent (A)"
+            title="Open planning agent"
             className="absolute bottom-5 right-5 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium shadow-lg shadow-violet-900/40 transition-colors z-10"
           >
             <Bot className="w-4 h-4" />
@@ -55,14 +54,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           </button>
         )}
       </main>
-      {/* Agent panel — rendered outside <main> so it doesn't compress the board */}
-      <div
-        className={`flex flex-col shrink-0 transition-all duration-200 ease-in-out overflow-hidden ${
-          agentChatOpen ? 'w-[19rem]' : 'w-0'
-        }`}
-      >
-        {agentChatOpen && <AgentChat onClose={closeAgentChat} />}
-      </div>
+      {agentChatOpen && <AgentOverlay onClose={closeAgentChat} />}
       <NewItemDialog />
       <NewProjectDialog
         open={newProjectOpen}
