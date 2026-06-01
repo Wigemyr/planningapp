@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+
+    /* Slate Paper tokens (mirror tailwind.config.ts) */
+    --bg: #111114;
+    --surface-1: #18181b;
+    --surface-2: #1f1f23;
+    --surface-3: #26262a;
+    --surface-4: #2f2f33;
+
+    --line-1: rgba(255, 255, 255, 0.06);
+    --line-2: rgba(255, 255, 255, 0.10);
+    --line-3: rgba(255, 255, 255, 0.14);
+
+    --ink-1: #f0f0f0;
+    --ink-2: #c4c4c5;
+    --ink-3: #8a8a8d;
+    --ink-4: #5a5a5d;
+
+    --accent: #5b8def;
+    --accent-2: #7ba2f2;
+    --accent-soft: rgba(91, 141, 239, 0.10);
+
+    --sem-neutral: #8a8a8d;
+    --sem-info:    #5b8def;
+    --sem-warn:    #c79348;
+    --sem-danger:  #c66e6b;
+    --sem-success: #6aa57d;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--ink-1);
+    letter-spacing: -0.011em;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Custom cursor: clean arrow with a dark drop-path beneath a light fill,
+     * no heavy stroke. Display size 28x28 (viewBox kept at 22) — the SVG
+     * scales up uniformly so the arrow reads cleanly without redrawing the
+     * path. Hot-spot scaled to (4, 3). !important so Tailwind cursor
+     * utilities don't silently revert this to the OS default. */
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.7'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23b6b8bf'/></svg>") 4 3, default !important;
+  }
+  /* Clickables: same shape, brighter fill so the cursor visibly changes when you
+   * move from page bg onto a button (no OS hand swap, no chunky outline).
+   *
+   * !important is necessary because Tailwind's `cursor-pointer` utility lives in
+   * @layer utilities, which always wins over @layer base regardless of source
+   * order. Without it, any chip/label using `cursor-pointer` (e.g. the
+   * TintedSelect chips in the detail panel) falls back to the OS hand cursor. */
+  button:not(:disabled),
+  a[href],
+  [role="button"],
+  summary,
+  label[for],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  [class~="cursor-pointer"],
+  [class~="cursor-grab"],
+  [class~="cursor-move"] {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 22 22'><path d='M3.2 2.2 L17 11.5 L11 11.7 L8.8 16.3 Z' fill='%2310101a' opacity='0.85'/><path d='M4 3.2 L16 11.2 L10.5 11.5 L8.9 15.4 Z' fill='%23f5f6fa'/></svg>") 4 3, pointer !important;
+  }
+  /* Modern I-beam for text fields — slim vertical bar with rounded caps, light
+   * fill on a dark drop-shadow, matches the arrow cursor's visual language.
+   * Hot-spot centred at (11, 11). Falls back to OS `text` if the URL fails. */
+  input:not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  [contenteditable="true"] {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'><path d='M11 3 v16' stroke='%2310101a' stroke-width='3.6' stroke-linecap='round' fill='none' opacity='0.65'/><path d='M11 3 v16' stroke='%23f5f6fa' stroke-width='1.6' stroke-linecap='round' fill='none'/></svg>") 11 11, text !important;
+  }
+  /* Focus ring — warm-neutral thin outline. Used to be 2px solid var(--accent)
+   * (blue) which clashed with the Slate Paper palette and read as a "click
+   * box". Subtler ring keeps keyboard nav visible without the harsh colour. */
+  *:focus-visible {
+    outline: 1px solid var(--line-3);
+    outline-offset: 2px;
+    border-radius: 4px;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
+  }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background: var(--line-2);
+    border-radius: 4px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: var(--ink-4);
+  }
+}
+
+@layer components {
+  .kbd {
+    @apply text-[10.5px] font-mono px-[5px] py-[1px] rounded border border-line-2 text-ink-muted bg-black/25 leading-[1.4] inline-block;
+  }
+  .pill {
+    @apply text-[11px] leading-[1.4] px-[7px] py-[1px] rounded font-medium inline-flex items-center;
+  }
+  .dot {
+    @apply w-2 h-2 rounded-full inline-block shrink-0;
+  }
+  .avatar {
+    @apply w-[22px] h-[22px] rounded-full inline-flex items-center justify-center text-[10px] font-semibold text-white shrink-0;
+  }
+  .meta-text {
+    @apply text-[11px] text-ink-muted tabular-nums;
+  }
+
+  /* ===== Board layout =====
+   * Two explicit modes driven by a class on .board-outer:
+   *   .board-mode-horizontal: classic Kanban, columns flex-grow with min 280px,
+   *     board scrolls horizontally if needed, each column has its own scroll.
+   *   .board-mode-vertical: columns stack vertically, separators flip to bottom,
+   *     whole board scrolls as one (good for portrait monitors).
+   * Default in code is picked based on viewport on first load; user can toggle
+   * via the layout button — choice persists in localStorage. */
+  .board-outer {
+    flex: 1;
+    min-height: 0;
+  }
+  .board-cols {
+    display: flex;
+    min-width: 100%;
+    padding: 12px 16px 0;
+  }
+  .board-col {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .board-col-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ---- Horizontal mode ---- */
+  .board-mode-horizontal {
+    overflow-y: hidden;
+    overflow-x: auto;
+  }
+  .board-mode-horizontal .board-cols {
+    flex-direction: row;
+    gap: 0;
+    height: 100%;
+  }
+  .board-mode-horizontal .board-col {
+    flex: 1 1 0;
+    min-width: 280px;
+    height: 100%;
+    padding: 0 12px;
+  }
+  .board-mode-horizontal .board-col:not(:last-child) {
+    box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.06);
+  }
+  .board-mode-horizontal .board-col-cards {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  /* ---- Vertical mode ---- */
+  .board-mode-vertical {
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .board-mode-vertical .board-cols {
+    flex-direction: column;
+    gap: 12px;
+    /* Fill the visible board area at minimum so empty columns don't leave dead
+     * space at the bottom; expand naturally past 100% when content overflows. */
+    min-height: 100%;
+  }
+  .board-mode-vertical .board-col {
+    width: 100%;
+    min-width: 0;
+    padding: 0 12px 12px;
+    /* Share the remaining vertical space equally between columns. flex-shrink: 0
+     * + flex-basis: auto means each column grows out from its content size, so
+     * columns with many cards still expand to fit them. */
+    flex: 1 0 auto;
+  }
+  .board-mode-vertical .board-col:not(:last-child) {
+    box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.06);
+  }
+  /* Cards in vertical mode lay out as a single horizontally-scrolling row of
+   * fixed-width tiles. Wrapping to a second row made the first status section
+   * (Backlog) absorb most of the viewport height, pushing Active / Waiting /
+   * Blocked / Resolved off the fold. Single-row + side-scroll keeps each
+   * section a predictable height and the rest of the board visible at once.
+   * Horizontal mode keeps the default vertical column stack from
+   * .board-col-cards above. */
+  .board-mode-vertical .board-col-cards {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+  }
+  .board-mode-vertical .board-col-cards > * {
+    flex: 0 0 280px;
+    min-width: 0;
+    max-width: 280px;
+  }
+  /* Empty-state placeholder should span the section so the "drop here" hint is
+   * obvious when the section has no cards yet. */
+  .board-mode-vertical .board-col-cards > .board-empty-state {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* Sidebar.
+   * px-2.5 (10px) matches the inner padding of the workspace .surface-button and
+   * the projects-heading inner padding, so the count on each row, the heading's
+   * "+", and the workspace chevron all align to the same right axis. */
+  .sidebar-link {
+    @apply flex items-center gap-[9px] px-2.5 py-[5px] rounded-md text-[12.5px] text-ink-2 transition-colors relative;
+  }
+  .sidebar-link:hover { @apply bg-white/[0.035] text-ink; }
+  .sidebar-link.active {
+    background: var(--surface-2);
+    color: var(--ink-1);
+  }
+  .sidebar-link.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 6px; bottom: 6px;
+    width: 2px; border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* Filter chip (search bar's quick filters) — gets a visible hover bg so the
+   * user knows it's clickable even though we removed the OS hand cursor. */
+  .filter-chip {
+    background: transparent;
+    border-color: var(--line-1);
+    color: var(--ink-2);
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+  }
+  .filter-chip:hover {
+    background: var(--surface-1);
+    border-color: var(--line-2);
+    color: var(--ink-1);
+  }
+  /* Active state stays neutral grey — the count badge already conveys the
+   * "this filter is engaged" signal without needing a colour shift. */
+  .filter-chip[data-active="true"] {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--line-3);
+    color: var(--ink-1);
+  }
+  .filter-chip[data-active="true"]:hover {
+    background: rgba(255, 255, 255, 0.10);
+    border-color: var(--line-3);
+  }
+
+  /* shadcn-ish button — bordered, neutral surface, used in sidebar header */
+  .surface-button {
+    @apply flex items-center gap-2 w-full h-8 px-2.5 rounded-md text-[13px] font-medium transition-colors cursor-pointer;
+    background: var(--surface-2);
+    border: 1px solid var(--line-1);
+    color: var(--ink-1);
+    letter-spacing: -0.008em;
+  }
+  .surface-button:hover {
+    background: var(--surface-3);
+    border-color: var(--line-2);
+  }
+
+  /* Bug pill — desaturated brick */
+  .type-bug-pill {
+    @apply inline-flex items-center gap-[3px] text-[11px] font-semibold px-[6px] py-px rounded;
+    background: rgba(198,110,107,0.10);
+    color: var(--sem-danger);
+    letter-spacing: 0.01em;
+    padding-left: 5px;
+  }
+  .type-bug-pill svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  /* Property control (detail panel) */
+  .prop-control {
+    @apply w-full flex items-center text-[12.5px] rounded-md border;
+    height: 30px;
+    padding: 0 10px;
+    line-height: 1;
+    border-color: var(--line-1);
+  }
+  .prop-control:hover { filter: brightness(1.08); }
+  .prop-control:focus-within {
+    outline: 2px solid var(--accent-soft);
+    outline-offset: 1px;
+  }
+  .prop-static {
+    @apply text-[12.5px] text-ink-2 px-2 py-1.5 inline-flex items-center;
+  }
+
+  /* Rich-text editor body — re-enable list bullet/number visuals that the
+   * Tailwind base reset strips by default. */
+  .rich-editor ul,
+  .rich-editor ol {
+    padding-left: 1.4rem;
+    margin: 0.15rem 0;
+  }
+  .rich-editor ul { list-style: disc outside; }
+  .rich-editor ol { list-style: decimal outside; }
+  .rich-editor li { padding-left: 0.15rem; }
+  .rich-editor strong, .rich-editor b { font-weight: 600; color: var(--ink-1); }
+  .rich-editor em, .rich-editor i { font-style: italic; }
+  .rich-editor u { text-decoration: underline; text-decoration-color: var(--ink-3); }
+  .rich-editor s, .rich-editor strike { text-decoration: line-through; }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

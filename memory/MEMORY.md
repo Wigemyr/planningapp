@@ -1,0 +1,3 @@
+- [User role](user_role.md) — Solo SaaS founder on Windows, builds multi-user-ready tools for personal use, won't pay for hobby infra
+- [Design taste](feedback_design.md) — Dislikes AI-slop UI: heavy rounded corners, decorative gradients, mono fonts. Wants restrained dark dashboard look
+- [planningapp project](project_planningapp.md) — Personal Kanban tool, **live on Vercel + Supabase**. Project IDs, deferred features, setup steps on new machine, recent decisions.
