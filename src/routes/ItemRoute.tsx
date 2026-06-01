@@ -29,6 +29,9 @@ import {
   Link2,
   Check,
   CornerDownLeft,
+  Network,
+  ExternalLink,
+  ChevronUp,
 } from '@/components/icons';
 
 /** Editable subset of an Item that the user composes before pressing Save. */
@@ -82,6 +85,8 @@ export default function ItemRoute() {
 
   const updateItem = useStore((s) => s.updateItem);
   const deleteItem = useStore((s) => s.deleteItem);
+  const addDependency = useStore((s) => s.addDependency);
+  const removeDependency = useStore((s) => s.removeDependency);
   const addAttachment = useStore((s) => s.addAttachment);
   const addAttachmentsFromBlobs = useStore((s) => s.addAttachmentsFromBlobs);
   const removeAttachment = useStore((s) => s.removeAttachment);
@@ -760,6 +765,18 @@ export default function ItemRoute() {
               )}
             </div>
 
+            <div className="my-5 border-t border-line" />
+
+            {/* ── Dependencies ─────────────────────────────────────── */}
+            <DependencyPanel
+              item={item}
+              items={items}
+              onAdd={addDependency}
+              onRemove={removeDependency}
+              onNavigate={(targetId) => requestClose(() => navigate(`/items/${targetId}`))}
+              onOpenGraph={() => requestClose(() => navigate('/graph'))}
+            />
+
             {dirty && (
               <div className="mt-5 pt-4 border-t border-line">
                 <button
@@ -885,6 +902,220 @@ export default function ItemRoute() {
         </div>
       )}
     </>
+  );
+}
+
+/* ───────── DependencyPanel ───────── */
+
+interface DepPanelProps {
+  item: Item;
+  items: Item[];
+  onAdd: (itemId: string, dependsOnId: string) => Promise<void>;
+  onRemove: (itemId: string, dependsOnId: string) => Promise<void>;
+  onNavigate: (id: string) => void;
+  onOpenGraph: () => void;
+}
+
+const STATUS_DOT: Record<string, string> = {
+  active:   '#6aa57d',
+  blocked:  '#c66e6b',
+  waiting:  '#c79348',
+  backlog:  '#5a5a64',
+  resolved: '#3a3a40',
+};
+
+function DependencyPanel({ item, items, onAdd, onRemove, onNavigate, onOpenGraph }: DepPanelProps) {
+  const [addingBlocker, setAddingBlocker] = useState(false);
+  const [query, setQuery] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // items this one depends on (blockers)
+  const blockedBy = useMemo(
+    () => item.dependsOn.map((id) => items.find((i) => i.id === id)).filter(Boolean) as Item[],
+    [item.dependsOn, items],
+  );
+
+  // items that depend on this one (downstream)
+  const blocking = useMemo(
+    () => items.filter((i) => i.dependsOn.includes(item.id)),
+    [item.id, items],
+  );
+
+  const suggestions = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return items
+      .filter(
+        (i) =>
+          i.id !== item.id &&
+          !item.dependsOn.includes(i.id) &&
+          (i.title.toLowerCase().includes(q) || i.shortId.toLowerCase().includes(q)),
+      )
+      .slice(0, 6);
+  }, [query, items, item]);
+
+  useEffect(() => {
+    if (addingBlocker) setTimeout(() => inputRef.current?.focus(), 60);
+  }, [addingBlocker]);
+
+  async function pick(target: Item) {
+    await onAdd(item.id, target.id);
+    setQuery('');
+    setAddingBlocker(false);
+  }
+
+  const hasDeps = blockedBy.length > 0 || blocking.length > 0;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] uppercase tracking-[0.16em] font-semibold text-ink-subtle">
+          Dependencies
+        </span>
+        <button
+          type="button"
+          onClick={onOpenGraph}
+          title="Open dependency graph"
+          className="flex items-center gap-1 text-[10.5px] text-ink-muted hover:text-ink-2 transition-colors"
+        >
+          <Network className="w-3 h-3" strokeWidth={1.75} />
+          Graph
+        </button>
+      </div>
+
+      {/* Blocked by */}
+      {blockedBy.length > 0 && (
+        <div className="mb-2">
+          <div className="text-[10.5px] text-[#c66e6b] font-medium mb-1 flex items-center gap-1">
+            <ChevronUp className="w-3 h-3" strokeWidth={2} />
+            Blocked by
+          </div>
+          <div className="space-y-0.5">
+            {blockedBy.map((dep) => (
+              <DepChip
+                key={dep.id}
+                dep={dep}
+                onNavigate={onNavigate}
+                onRemove={() => onRemove(item.id, dep.id)}
+                removable
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Blocking */}
+      {blocking.length > 0 && (
+        <div className="mb-2">
+          <div className="text-[10.5px] text-[#c79348] font-medium mb-1 flex items-center gap-1">
+            <ChevronUp className="w-3 h-3 rotate-180" strokeWidth={2} />
+            Blocking
+          </div>
+          <div className="space-y-0.5">
+            {blocking.map((dep) => (
+              <DepChip key={dep.id} dep={dep} onNavigate={onNavigate} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!hasDeps && !addingBlocker && (
+        <p className="text-[11.5px] text-ink-muted mb-2">No dependencies.</p>
+      )}
+
+      {/* Add blocker */}
+      {addingBlocker ? (
+        <div className="relative">
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { setAddingBlocker(false); setQuery(''); }
+            }}
+            placeholder="Search items…"
+            className="w-full bg-panel border border-line rounded-md text-[12.5px] px-2.5 py-1.5 text-ink placeholder:text-ink-muted focus:outline-none focus:border-accent"
+          />
+          {suggestions.length > 0 && (
+            <div
+              className="absolute top-full mt-1 w-full z-20 border border-line-2 shadow-2xl shadow-black/40 py-1 rounded-lg overflow-hidden"
+              style={{ background: 'rgba(28,28,32,0.97)', backdropFilter: 'blur(12px)' }}
+            >
+              {suggestions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => pick(s)}
+                  className="w-full text-left px-3 py-1.5 text-[12px] text-ink-2 hover:bg-white/[0.06] hover:text-ink flex items-center gap-2 transition-colors"
+                >
+                  <span
+                    className="dot shrink-0"
+                    style={{ background: STATUS_DOT[s.status] ?? '#5a5a64', width: 7, height: 7 }}
+                  />
+                  <span className="text-ink-subtle shrink-0">{s.shortId}</span>
+                  <span className="truncate">{s.title || 'Untitled'}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => { setAddingBlocker(false); setQuery(''); }}
+            className="mt-1 text-[11px] text-ink-muted hover:text-ink-2 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAddingBlocker(true)}
+          className="text-[11.5px] text-ink-muted hover:text-ink-2 transition-colors flex items-center gap-1"
+        >
+          + Add blocker
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DepChip({
+  dep,
+  onNavigate,
+  onRemove,
+  removable,
+}: {
+  dep: Item;
+  onNavigate: (id: string) => void;
+  onRemove?: () => void;
+  removable?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 group rounded px-1.5 py-1 hover:bg-white/[0.04] transition-colors">
+      <span
+        className="dot shrink-0"
+        style={{ background: STATUS_DOT[dep.status] ?? '#5a5a64', width: 7, height: 7 }}
+      />
+      <button
+        type="button"
+        onClick={() => onNavigate(dep.id)}
+        className="flex-1 min-w-0 text-left text-[12px] text-ink-2 hover:text-ink transition-colors flex items-center gap-1.5"
+      >
+        <span className="text-ink-subtle shrink-0">{dep.shortId}</span>
+        <span className="truncate">{dep.title || 'Untitled'}</span>
+        <ExternalLink className="w-2.5 h-2.5 shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" strokeWidth={2} />
+      </button>
+      {removable && onRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          className="shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 text-ink-muted hover:text-[#ef4444] transition-all"
+          aria-label="Remove dependency"
+        >
+          <X className="w-3 h-3" strokeWidth={2} />
+        </button>
+      )}
+    </div>
   );
 }
 

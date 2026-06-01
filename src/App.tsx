@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import BoardRoute from './routes/BoardRoute';
 import ItemRoute from './routes/ItemRoute';
+import GraphRoute from './routes/GraphRoute';
 import SettingsRoute from './routes/SettingsRoute';
 import TrashRoute from './routes/TrashRoute';
 import PendingInviteRoute from './routes/PendingInviteRoute';
@@ -35,6 +36,7 @@ function AppInner() {
       <Routes>
         <Route path="/" element={<BoardRoute />} />
         <Route path="/items/:id" element={<ItemRoute />} />
+        <Route path="/graph" element={<GraphRoute />} />
         <Route path="/settings" element={<SettingsRoute />} />
         <Route path="/trash" element={<TrashRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />

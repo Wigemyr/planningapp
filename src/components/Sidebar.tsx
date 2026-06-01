@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DndContext,
   KeyboardSensor,
@@ -32,6 +32,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Palette,
+  Network,
 } from './icons';
 import { getProjectIcon } from '@/lib/projectAppearance';
 import type { Project } from '@/lib/types';
@@ -59,6 +60,7 @@ export function Sidebar() {
   const openContextMenu = useUi((s) => s.openContextMenu);
   const openProjectAppearance = useUi((s) => s.openProjectAppearance);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const isOwner =
     members.find((m) => m.user.id === currentUserId)?.role === 'owner';
@@ -342,8 +344,8 @@ export function Sidebar() {
         {/* All projects */}
         <button
           type="button"
-          onClick={() => setCurrentProject(null)}
-          className={`sidebar-link w-full ${currentProjectId === null ? 'active' : ''}`}
+          onClick={() => { setCurrentProject(null); navigate('/'); }}
+          className={`sidebar-link w-full ${pathname === '/' && currentProjectId === null ? 'active' : ''}`}
           style={collapsed ? { justifyContent: 'center', gap: 0, padding: '8px 0' } : undefined}
           title="All projects"
         >
@@ -355,6 +357,20 @@ export function Sidebar() {
                 {items.filter((i) => i.status !== 'resolved').length}
               </span>
             </>
+          )}
+        </button>
+
+        {/* Dependency graph */}
+        <button
+          type="button"
+          onClick={() => navigate('/graph')}
+          className={`sidebar-link w-full ${pathname === '/graph' ? 'active' : ''}`}
+          style={collapsed ? { justifyContent: 'center', gap: 0, padding: '8px 0' } : undefined}
+          title="Dependency graph"
+        >
+          <Network className="w-4 h-4 shrink-0" style={{ color: 'var(--ink-3)' }} strokeWidth={1.75} />
+          {!collapsed && (
+            <span className="flex-1 truncate text-left">Dep. graph</span>
           )}
         </button>
 

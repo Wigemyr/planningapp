@@ -66,4 +66,7 @@ export {
   Target,
   Bot,
   Wrench,
+  Network,
+  ExternalLink,
+  ChevronUp,
 } from 'lucide-react';
