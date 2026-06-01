@@ -4,7 +4,7 @@ import { STATUS_CONFIG, PRIORITY_COLOR, PRIORITY_LABEL } from '@/lib/constants';
 import { useStore } from '@/store/useStore';
 import { useUi } from '@/store/useUi';
 import { Avatar } from './Avatar';
-import { Bug, Paperclip, MessageSquare, Clock, Trash2 } from './icons';
+import { Bug, Paperclip, MessageSquare, Clock, Trash2, Link2 } from './icons';
 import { stripTags } from './RichTextEditor';
 
 /** Warm-neutral palette per item type. All four types are distinct so you can
@@ -36,9 +36,16 @@ export function ItemCard({ item, dragging = false }: Props) {
   const openConfirm = useUi((s) => s.openConfirm);
   const openContextMenu = useUi((s) => s.openContextMenu);
 
+  const allItems = useStore((s) => s.items);
   const assignee = users.find((u) => u.id === item.assigneeId);
   const project = projects.find((p) => p.id === item.projectId);
   const statusCfg = STATUS_CONFIG[item.status];
+
+  // Dependency state: how many unresolved prerequisites does this item have?
+  const unresolvedDepCount = item.dependsOn.filter((d) => {
+    const dep = allItems.find((i) => i.id === d);
+    return dep && dep.status !== 'resolved';
+  }).length;
 
   const cardBorder = statusCfg.cardBorder ?? undefined;
   const isBug = item.type === 'bug';
@@ -166,6 +173,20 @@ export function ItemCard({ item, dragging = false }: Props) {
           <span className="text-[11px] flex items-center gap-1 text-ink-muted" title={`${item.attachments.length} attachment(s)`}>
             <Paperclip className="w-3 h-3" strokeWidth={1.75} />
             {item.attachments.length}
+          </span>
+        )}
+        {item.dependsOn.length > 0 && (
+          <span
+            className="text-[11px] flex items-center gap-0.5"
+            title={
+              unresolvedDepCount > 0
+                ? `${unresolvedDepCount} unresolved prerequisite${unresolvedDepCount > 1 ? 's' : ''}`
+                : `${item.dependsOn.length} resolved prerequisite${item.dependsOn.length > 1 ? 's' : ''}`
+            }
+            style={{ color: unresolvedDepCount > 0 ? 'var(--sem-danger)' : 'var(--ink-4)' }}
+          >
+            <Link2 className="w-3 h-3" strokeWidth={1.75} />
+            {item.dependsOn.length}
           </span>
         )}
         {item.status === 'waiting' && (

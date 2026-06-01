@@ -37,6 +37,7 @@ interface DbItem {
   started_at: string | null; resolved_at: string | null;
   created_by: string | null; updated_by: string | null;
 }
+interface DbDependency { item_id: string; depends_on_id: string; }
 interface DbAttachment {
   id: string; item_id: string; filename: string; storage_path: string;
   size_bytes: number; mime_type: string; uploaded_by: string | null; created_at: string;
@@ -98,7 +99,7 @@ const dbToComment = (r: DbComment): Comment => ({
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
-const dbToItem = (r: DbItem, atts: DbAttachment[]): Item => ({
+const dbToItem = (r: DbItem, atts: DbAttachment[], dependsOn: string[] = []): Item => ({
   id: r.id,
   shortId: r.short_id,
   workspaceId: r.workspace_id,
@@ -118,6 +119,7 @@ const dbToItem = (r: DbItem, atts: DbAttachment[]): Item => ({
   createdBy: r.created_by,
   updatedBy: r.updated_by,
   position: r.position,
+  dependsOn,
 });
 
 /* ---------- Store ---------- */
@@ -215,6 +217,10 @@ interface StoreState {
   updateItem: (id: string, patch: Partial<Item>) => Promise<void>;
   moveItem: (id: string, newStatus: Status, newIndex: number) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
+
+  // dependencies
+  addDependency: (itemId: string, dependsOnId: string) => Promise<void>;
+  removeDependency: (itemId: string, dependsOnId: string) => Promise<void>;
 
   // comments
   addComment: (itemId: string, body: string, mentions: string[]) => Promise<Comment>;
@@ -365,7 +371,19 @@ export const useStore = create<StoreState>((set, get) => ({
         arr.push(a);
         attByItem.set(a.item_id, arr);
       });
-      const items = dbItems.map((r) => dbToItem(r, attByItem.get(r.id) ?? []));
+
+      // Load dependencies for all items in this workspace
+      const { data: depsRes } = itemIds.length > 0
+        ? await supabase.from('item_dependencies').select('item_id, depends_on_id').in('item_id', itemIds)
+        : { data: [] as DbDependency[] };
+      const depsByItem = new Map<string, string[]>();
+      ((depsRes ?? []) as DbDependency[]).forEach(({ item_id, depends_on_id }) => {
+        const arr = depsByItem.get(item_id) ?? [];
+        arr.push(depends_on_id);
+        depsByItem.set(item_id, arr);
+      });
+
+      const items = dbItems.map((r) => dbToItem(r, attByItem.get(r.id) ?? [], depsByItem.get(r.id) ?? []));
 
       // Comments across the workspace — cheap to load up-front so the detail
       // view renders instantly when navigated to.
@@ -898,6 +916,34 @@ export const useStore = create<StoreState>((set, get) => ({
     }
   },
 
+  addDependency: async (itemId, dependsOnId) => {
+    const { error } = await supabase
+      .from('item_dependencies')
+      .insert({ item_id: itemId, depends_on_id: dependsOnId });
+    if (error) throw error;
+    set((s) => ({
+      items: s.items.map((i) =>
+        i.id === itemId ? { ...i, dependsOn: [...i.dependsOn, dependsOnId] } : i,
+      ),
+    }));
+  },
+
+  removeDependency: async (itemId, dependsOnId) => {
+    const { error } = await supabase
+      .from('item_dependencies')
+      .delete()
+      .eq('item_id', itemId)
+      .eq('depends_on_id', dependsOnId);
+    if (error) throw error;
+    set((s) => ({
+      items: s.items.map((i) =>
+        i.id === itemId
+          ? { ...i, dependsOn: i.dependsOn.filter((d) => d !== dependsOnId) }
+          : i,
+      ),
+    }));
+  },
+
   addComment: async (itemId, body, mentions) => {
     const state = get();
     const workspaceId = state.currentWorkspaceId;
@@ -1354,9 +1400,9 @@ function startRealtime(
           return;
         }
         const row = payload.new as DbItem;
-        // Preserve any locally-attached attachments+url state
+        // Preserve any locally-attached attachments+url state and dependencies
         const existing = get().items.find((i) => i.id === row.id);
-        const next = dbToItem(row, []);
+        const next = dbToItem(row, [], existing?.dependsOn ?? []);
         next.attachments = existing?.attachments ?? [];
         set((s) => {
           if (existing) {

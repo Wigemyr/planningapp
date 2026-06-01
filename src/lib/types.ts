@@ -76,6 +76,8 @@ export interface Item {
   updatedBy: string | null;
   /** Ordering within a column. Lower = higher. Bugs ignore this within their group. */
   position: number;
+  /** IDs of items that must be resolved before this item can start. */
+  dependsOn: string[];
 }
 
 export interface User {
